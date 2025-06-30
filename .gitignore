@@ -1,4 +1,5 @@
- bin/ 
- obj/ 
- *.user 
- *.suo 
+bin/
+obj/
+*.dll
+*.user
+*.suo
