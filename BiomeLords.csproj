@@ -4,19 +4,72 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>BiomeLords</AssemblyName>
     <RootNamespace>BiomeLords</RootNamespace>
+    <Version>0.1.0</Version>
+    <ValheimPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim</ValheimPath>
   </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="UnityEngine">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim\valheim_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim\valheim_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_valheim">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\assembly_valheim.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_utils">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\assembly_utils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_guiutils">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\assembly_guiutils.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="BepInEx">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\core\BepInEx.dll</HintPath>
+      <HintPath>$(ValheimPath)\BepInEx\core\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(ValheimPath)\BepInEx\core\0Harmony.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Reference Include="Jotunn">
-      <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\plugins\Jotunn.dll</HintPath>
+      <HintPath>$(ValheimPath)\BepInEx\plugins\ValheimModding-Jotunn\Jotunn.dll</HintPath>
+      <Private>false</Private>
     </Reference>
   </ItemGroup>
-</Project> 
+
+  <PropertyGroup>
+    <R2ModManPluginPath>C:\Users\yesu0725\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Mod Test Profile\BepInEx\plugins\BiomeLords</R2ModManPluginPath>
+  </PropertyGroup>
+
+  <Target Name="CopyToPlugins" AfterTargets="Build">
+    <MakeDir Directories="$(ValheimPath)\BepInEx\plugins\BiomeLords" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ValheimPath)\BepInEx\plugins\BiomeLords" />
+    <Message Text="Copied $(TargetFileName) to BepInEx\plugins\BiomeLords" Importance="high" />
+
+    <MakeDir Directories="$(R2ModManPluginPath)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(R2ModManPluginPath)" />
+    <Message Text="Copied $(TargetFileName) to r2modman Mod Test Profile" Importance="high" />
+  </Target>
+</Project>
