@@ -16,10 +16,9 @@ namespace BiomeLords.Phase1B
 
         public static void RegisterAll()
         {
-            // Cloned visually from Wishbone (a guaranteed-existing usable utility item).
-            // Players won't see a literal horn, but it's a small, glowing magical artefact
-            // that fits the "summoning relic" feel and is proven to register as an item.
-            var item = new CustomItem(LordsHornPrefab, "Wishbone", new ItemConfig
+            // Cloned visually from the Anniversary Tankard — a drinking-horn-shaped
+            // ceremonial item that fits the "summoning relic" feel better than Wishbone.
+            var item = new CustomItem(LordsHornPrefab, "TankardAnniversary", new ItemConfig
             {
                 Name        = "$item_lordshorn",
                 Description = "$item_lordshorn_desc",
@@ -195,8 +194,9 @@ namespace BiomeLords.Phase1B
                 },
             });
 
-            // Strip Wishbone-specific equip behaviour (detect-buried-items status effect)
-            // so the player doesn't see the Wishbone tooltip lines or get its ability.
+            // Strip Tankard-specific wielding behaviour (it's normally a held/equipped
+            // drinking item with its own equip + consume status effects and animation
+            // state) so the Horn can't be wielded — it's a pure use-from-inventory item.
             var drop = item.ItemPrefab.GetComponent<ItemDrop>();
             if (drop != null && drop.m_itemData != null && drop.m_itemData.m_shared != null)
             {
@@ -207,20 +207,22 @@ namespace BiomeLords.Phase1B
                 s.m_consumeStatusEffect  = null;
                 s.m_setName              = "";
                 s.m_setSize              = 0;
+                s.m_animationState       = ItemDrop.ItemData.AnimationState.Unarmed;
 
-                // Tooltip type label: Wishbone shows "Utility". "Consumable" fits the
-                // Horn (one-shot use → destroyed) and reads correctly to the player.
+                // Tooltip type label: Tankard shows as a wieldable utility item.
+                // "Consumable" fits the Horn (one-shot use → destroyed), can't be
+                // equipped/wielded, and reads correctly to the player.
                 s.m_itemType        = ItemDrop.ItemData.ItemType.Consumable;
                 s.m_maxStackSize    = 1;
-                s.m_attachOverride  = ItemDrop.ItemData.ItemType.None; // clear utility-slot equip
+                s.m_attachOverride  = ItemDrop.ItemData.ItemType.None; // clear equip-slot wielding
                 s.m_useDurability   = false;
                 s.m_questItem       = false;
                 Jotunn.Logger.LogInfo(
                     $"[BiomeLords] LordsHorn shared: itemType={s.m_itemType}, attachOverride={s.m_attachOverride}");
             }
 
-            // Retint visuals so it doesn't look like a Wishbone.
-            // Deep teal/cyan = water/Neck theme; far enough from Wishbone yellow.
+            // Retint visuals so it doesn't look like a vanilla Anniversary Tankard.
+            // Deep teal/cyan = water/Neck theme; far enough from the Tankard's wood/gold tones.
             var bodyTint     = new Color(0.15f, 0.55f, 0.85f, 1f);
             var emissionTint = new Color(0.05f, 0.70f, 1.00f, 1f);
             RetintPrefab(item.ItemPrefab, bodyTint, emissionTint);
@@ -231,6 +233,10 @@ namespace BiomeLords.Phase1B
                 var req = new RenderManager.RenderRequest(item.ItemPrefab)
                 {
                     Width = 64, Height = 64, UseCache = true,
+                    // Ties the on-disk icon cache key to our mod's version (not just
+                    // the prefab name + game version) so a stale icon from before the
+                    // Wishbone→TankardAnniversary clone swap can't be reused forever.
+                    TargetPlugin = Plugin.Instance.Info.Metadata,
                 };
                 var sprite = RenderManager.Instance.Render(req);
                 if (sprite != null && drop != null)

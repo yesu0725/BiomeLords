@@ -23,6 +23,12 @@ Visual distinction comes from:
 avoids Unity import pipeline issues, and ensures the mod survives Valheim updates
 that change model formats.
 
+The Lord's Horn item (`ItemFactory`) follows the same rule: cloned from the vanilla
+`TankardAnniversary` (previously `Wishbone`), retinted teal/cyan so it reads as a
+distinct relic rather than a recolored vanilla tankard, and stripped of its vanilla
+equip/wield behavior (`m_itemType` forced to `Consumable`, `m_attachOverride` cleared,
+`m_animationState` set to `Unarmed`) so it can only be used from inventory, never wielded.
+
 ### 2. No duplicate vanilla skills or vanilla Forsaken Powers
 
 **Rule:** A BiomeLords Forsaken Power or Blessing must never grant something
