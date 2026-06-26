@@ -5,6 +5,6 @@
   "website_url": "https://github.com/yesu0725/BiomeLords",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2333",
-    "ValheimModding-Jotunn-2.29.0"
+    "ValheimModding-Jotunn-2.29.1"
   ]
 }
