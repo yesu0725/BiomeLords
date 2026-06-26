@@ -264,10 +264,11 @@ compile-time dependency on `Unity.TextMeshPro`.
 **Target:** `Inventory.Load` prefix  
 **What it does:** Valheim saves item grid positions but **not** inventory dimensions, so the
 player inventory always reloads at 8×4. This prefix detects the player inventory (name
-`"Inventory"`, width 8) and pre-grows it to a safe ceiling **before** items are read, so
-items saved in Featherweight's extra rows land in their slots instead of being compacted
-into the base grid — or **destroyed** if the base grid is full (`Inventory.AddItem`). Height
-is then finalised on spawn.
+`"Inventory"` **or** `"ComfyQuickSlotsInventory"`, width 8 — see CQS note below) and
+pre-grows it to a safe ceiling **before** items are read, so items saved in Featherweight's
+extra rows land in their slots instead of being compacted into the base grid — or
+**destroyed** if the base grid is full (`Inventory.AddItem`). Height is then finalised on
+spawn.
 
 ### `Player_OnSpawned_BlessingPersistence` (`Patches/BlessingPersistencePatch.cs`)
 
@@ -298,7 +299,29 @@ bindings and tooltips. Height delta = `extraRows × m_elementSpace`, computed fr
 vanilla base sizes so repeated opens / blessing toggles stay stable.  
 **Gotcha:** Fully defensive (try/catch, null-checks) and uses a string-based `GetComponent`
 to find the backdrop without referencing `UnityEngine.UI`. If the panel hierarchy differs it
-degrades to "rows extend slightly past the frame" rather than throwing.
+degrades to "rows extend slightly past the frame" rather than throwing.  
+**CQS interop:** early-returns when `FeatherweightInventory.ComfyQuickSlotsLoaded` — under
+ComfyQuickSlots the panel backdrop is owned by CQS's own `"ExtInvGrid"` image, which CQS
+re-sizes every grid refresh, clobbering anything set here. See
+`InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop` below.
+
+### `InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop` (`Patches/FeatherweightInventoryUiPatch.cs`)
+
+**Target:** `InventoryGrid.UpdateInventory` postfix, `[HarmonyAfter("com.bruce.valheim.comfyquickslots")]`  
+**What it does:** No-ops unless ComfyQuickSlots is loaded. CQS draws the player-inventory
+backdrop as its own `"ExtInvGrid"` image (cloned from vanilla `"Bkg"`) and re-applies a fixed
+size to it on every grid refresh: `height = 300 + 75·num`, `anchoredPosition.y = -35·num`,
+`width = 590`, with `num` hardcoded to `1` (the one armor/quickslot row CQS adds beyond
+vanilla's 4). That formula has no notion of Featherweight's extra rows, so they'd render
+below the frame. This patch re-applies the **same** formula to the **same** `"ExtInvGrid"`
+transform but with the true `num = player inventory height − FeatherweightInventory.VanillaHeight`
+(1 + any active Featherweight rows), running after CQS so its size is the one that sticks.
+Identifies the player's own grid via `InventoryGrid.GetInventory() == player.GetInventory()`
+(skips container/craft grids). Try/catch-wrapped; silently skips if `"ExtInvGrid"` doesn't
+exist yet that frame.  
+**Gotcha:** the magic constants (`300`, `75`, `35`, `590`) are copied from CQS's own
+`InventoryGridPatch.UpdatePlayerGrid` — if a future CQS version changes its sizing formula,
+this patch needs to be updated to match.
 
 ### Ceremony / power VFX — no green
 

@@ -17,12 +17,16 @@ namespace BiomeLords
     /// </summary>
     [BepInPlugin(ModGUID, ModName, ModVersion)]
     [BepInDependency(Jotunn.Main.ModGuid)]
+    // Soft dependency: if ComfyQuickSlots is installed it must load first so its
+    // plugin info is registered before FeatherweightInventory checks for it (and
+    // before our inventory patches run). Optional — BiomeLords works fine without it.
+    [BepInDependency("com.bruce.valheim.comfyquickslots", BepInDependency.DependencyFlags.SoftDependency)]
     [NetworkCompatibility(CompatibilityLevel.EveryoneMustHaveMod, VersionStrictness.Minor)]
     public class Plugin : BaseUnityPlugin
     {
         public const string ModGUID    = "com.taeguk.BiomeLords";
         public const string ModName    = "BiomeLords";
-        public const string ModVersion = "0.6.0";
+        public const string ModVersion = "0.6.1";
 
         internal static Plugin Instance;
         private Harmony _harmony;

@@ -1,7 +1,7 @@
 {
   "name": "BiomeLords",
   "description": "Adds a boss-tier Lord to every biome, summoned with the Lord's Horn after you've proven yourself a hunter. Defeat them for Forsaken Powers, and keep their trophies for permanent blessings.",
-  "version_number": "0.6.0",
+  "version_number": "0.6.1",
   "website_url": "https://github.com/yesu0725/BiomeLords",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2333",

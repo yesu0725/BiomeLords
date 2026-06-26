@@ -48,7 +48,7 @@ Each factory's `RegisterAll()` is called once in `OnVanillaPrefabsAvailable`.
 | Factory | Output |
 |---|---|
 | `CreatureFactory` | Cloned + tinted Lord prefabs with brain MBs attached |
-| `ItemFactory` | Lord's Horn item + tooltip patches |
+| `ItemFactory` | Lord's Horn item (cloned from `TankardAnniversary`, retinted, stripped of wielding) + tooltip patches |
 | `EventFactory` | World events (weather + music per biome) |
 | `TrophyFactory` | 7 Lord trophy items |
 | `PedestalFactory` | Lord's Pedestal buildable piece |
@@ -77,7 +77,7 @@ See [systems.md](systems.md) for implementation details.
 | `ForestEmbraceService` | Tree-healing ticks for Forest's Embrace FP |
 | `BlessingSystem` | Pedestal → player SE grant logic; persists active blessing in `m_customData` |
 | `PowerClaimSystem` | Lord kill → FP auto-grant |
-| `FeatherweightInventory` | Featherweight blessing: raised carry cap + extra inventory rows + CargoCrate spill on switch |
+| `FeatherweightInventory` | Featherweight blessing: raised carry cap + extra inventory rows + CargoCrate spill on switch; base height is CQS-aware (see [systems.md](systems.md#comfyquickslots-compatibility)) |
 
 ### Brain MonoBehaviours
 

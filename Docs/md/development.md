@@ -180,6 +180,13 @@ biomelords_intrinsic  (lists active tuning state)
 - [ ] **No green VFX** — using/claiming a Forsaken Power, placing a Lord trophy, and drawing a blessing show NO green effects
 - [ ] **Trophy VFX** — mounting a Lord trophy plays the non-green golden ceremony at the altar
 
+#### With ComfyMods-ComfyQuickSlots installed
+
+- [ ] **No crash on open** — opening the inventory does not throw (was `ArgumentOutOfRangeException` in `InventoryGridPatch.UpdatePlayerGrid` before the CQS-aware `BaseHeight` fix — see [systems.md](systems.md#comfyquickslots-compatibility))
+- [ ] **Armor survives blessing switch** — equipped armor (CQS's row `y == 4`) is never crated when switching away from Featherweight
+- [ ] **Extra rows survive logout under CQS** — log out with Featherweight items in the extra rows, log back in: rows + items restored (the renamed `"ComfyQuickSlotsInventory"` must still trigger the load pre-grow)
+- [ ] **Backdrop covers all rows** — with Featherweight active, the dark backdrop extends to cover both the CQS armor/quickslot row AND the Featherweight rows beneath it, no gap or short frame
+
 ### Greydwarf Shaman Lord specific
 
 - [ ] **Poison Orb** — ranged hits deal 36 pure poison (BepInEx log `greydwarf_lord hit` shows `poison=36 blunt=0`); no blunt conversion

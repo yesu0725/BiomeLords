@@ -398,6 +398,64 @@ Drives the Fallen Valkyrie Lord blessing's two mechanics (both gated on
   Container rebuilds from prefab size on reload). On death the tombstone copies the inventory
   size, so nothing is lost.
 
+### ComfyQuickSlots compatibility
+
+[ComfyQuickSlots](https://github.com/ComfyMods/ComfyQuickSlots) (`com.bruce.valheim.comfyquickslots`)
+forces the player inventory to **5 rows** and permanently claims grid row `y == 4` (elements
+`32–39`) for armor + quickslot bindings — and it renames the inventory to
+`"ComfyQuickSlotsInventory"`. `FeatherweightInventory` was originally hardcoded to a 4-row
+vanilla base, which under CQS caused three failures: `InventoryGrid.UpdateInventory` crashing
+(`ArgumentOutOfRangeException`, CQS reading `m_elements[32..39]` against a 32-element grid
+collapsed by `Reconcile`/`Collapse`), the player's equipped armor being treated as "stray"
+(`gridPos.y >= 4`) and spilled into a CargoCrate, and Featherweight's own extra-row items
+silently lost on load (the renamed inventory failed `IsPlayerInventory`'s name check, so
+`GrowForLoad` never ran).
+
+Fix, entirely inside `FeatherweightInventory`:
+- `BaseHeight` is now a runtime property, not a constant: `VanillaHeight` (4) normally,
+  `VanillaHeight + 1` (5) when CQS is detected via
+  `BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("com.bruce.valheim.comfyquickslots")`
+  (cached after first read, exposed as `ComfyQuickSlotsLoaded`). `ExpandedHeight`,
+  `LoadCeiling`, `Reconcile`, `Collapse`, and the stray-item cutoff all key off `BaseHeight`, so
+  under CQS its armor row is never stripped/crated and Featherweight rows stack **above** it
+  (`y ≥ 5`).
+- `IsPlayerInventory` accepts either `"Inventory"` (vanilla) or `"ComfyQuickSlotsInventory"`
+  (CQS) by name, so the load pre-grow fires either way.
+- `Plugin.cs` declares a `BepInDependency(..., SoftDependency)` on CQS's GUID purely so its
+  plugin info is registered (in `Chainloader.PluginInfos`) before BiomeLords' own patches run;
+  BiomeLords has no hard dependency and works identically without CQS installed.
+
+**Panel backdrop reconciliation** (`Patches/FeatherweightInventoryUiPatch.cs`): CQS draws its
+own backdrop image (`"ExtInvGrid"`, cloned from vanilla `"Bkg"`) and re-sizes it itself on every
+`InventoryGrid.UpdateInventory` using a hardcoded `num = 1` (rows beyond vanilla 4) →
+`height = 300 + 75·num`, `anchoredPosition.y = -35·num`, `width = 590`. That clobbered
+BiomeLords' own panel resize and ignored active Featherweight rows. Resolution: when CQS is
+loaded, `InventoryGui_Show_FeatherweightPanel` no-ops (stops touching `gui.m_player`/the
+vanilla backdrop) and a new `[HarmonyAfter("com.bruce.valheim.comfyquickslots")]` postfix,
+`InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop`, re-applies CQS's *own* formula to
+CQS's *own* `"ExtInvGrid"` but with the true `num = height − VanillaHeight` (1 + active
+Featherweight rows), so the single backdrop always covers exactly the rows actually present.
+No-op without CQS; fully try/catch-wrapped.
+
+---
+
+## Item icon rendering (`Phase1B/ItemFactory.cs`)
+
+The Lord's Horn icon is generated at runtime, not authored as a sprite asset, via
+Jotunn's `RenderManager.Render(new RenderManager.RenderRequest(item.ItemPrefab) { ... })`
+— rendered *after* the prefab is cloned (`TankardAnniversary`) and retinted, so the
+icon always matches the current visuals.
+
+**Icon cache gotcha:** Jotunn caches rendered icons on disk keyed by
+`prefabName-version-cacheRevision.png` (`Paths.IconCachePath`), not by a content hash
+of the mesh/materials. If `RenderRequest.TargetPlugin` is left unset, `version` falls
+back to the *game* version only — so a stale icon rendered under an earlier clone
+source (e.g. the original `Wishbone` clone) could be served forever via `UseCache =
+true`, surviving across restarts until the game version or Jotunn's internal
+`cacheRevision` changes. Fixed by setting `TargetPlugin = Plugin.Instance.Info.Metadata`,
+which ties the cache key to `BiomeLords`' own mod version so bumping `ModVersion`
+forces a fresh render.
+
 ---
 
 ## PowerClaimSystem (`Phase1C/PowerClaimSystem.cs`)

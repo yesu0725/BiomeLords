@@ -25,6 +25,16 @@ See the [Wiki](https://github.com/yesu0725/BiomeLords/wiki) for the full hunter'
 
 ---
 
+## Compatibility
+
+BiomeLords is built **entirely from vanilla Valheim assets** — every Lord, item, and effect is a cloned/retinted vanilla prefab, with no custom models or asset bundles. This keeps the footprint small and avoids clashing with most other mods.
+
+Known interactions with other mods:
+
+- **[ComfyQuickSlots](https://thunderstore.io/c/valheim/p/Cumfy/ComfyQuickSlots/)** — fully compatible as of **v0.6.1**. ComfyQuickSlots expands the player inventory by a 5th row for armor + quickslot bindings; BiomeLords' Featherweight blessing (Fallen Valkyrie Lord) now detects that layout and adapts its own extra-row math around it. Before 0.6.1, having both mods installed could crash on opening the inventory, spill equipped armor into a crate when switching blessings, or lose Featherweight's extra-row items on logout — all fixed.
+- **Other inventory/UI mods** that resize, rename, or otherwise hook the player inventory grid haven't all been tested. If you find a conflict, please [open an issue](https://github.com/yesu0725/BiomeLords/issues) with your modlist and the error log (`LogOutput.log`) so it can be diagnosed.
+- **Server-authoritative config** — `BiomeLords` requires every client to have the mod (`EveryoneMustHaveMod`) and matching major.minor version; admin-set config values are pushed from the server to clients automatically.
+
 ## Try it out
 
 This mod was built for the **TaegukGaming community server**. If you want to see it in action alongside a curated modpack, check out:

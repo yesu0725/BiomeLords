@@ -26,9 +26,42 @@ namespace BiomeLords.Util
     /// </summary>
     public static class FeatherweightInventory
     {
-        /// <summary>Vanilla player inventory grid: 8 wide × 4 tall (Humanoid).</summary>
-        public const int BaseWidth  = 8;
-        public const int BaseHeight = 4;
+        /// <summary>Vanilla player inventory grid width and base (un-blessed) height:
+        /// 8 wide × 4 tall (Humanoid).</summary>
+        public const int BaseWidth     = 8;
+        public const int VanillaHeight = 4;
+
+        /// <summary>ComfyQuickSlots plugin GUID. When that mod is installed it forces
+        /// the player inventory to 5 rows and claims grid row index 4 (the 5th row)
+        /// for armor + quickslot items, and renames the inventory. BiomeLords must
+        /// then treat 5 — not 4 — as the un-blessed base so it never strips or crates
+        /// that row, and Featherweight rows stack ABOVE it (grid y ≥ 5).</summary>
+        private const string ComfyQuickSlotsGuid = "com.bruce.valheim.comfyquickslots";
+
+        /// <summary>ComfyQuickSlots renames the player inventory to this. We accept it
+        /// alongside the vanilla "Inventory" name when identifying the player grid.</summary>
+        private const string ComfyQuickSlotsInvName = "ComfyQuickSlotsInventory";
+
+        private static int _baseHeight = -1;
+
+        /// <summary>True if ComfyQuickSlots is loaded (cached on first query).</summary>
+        public static bool ComfyQuickSlotsLoaded =>
+            BaseHeight == VanillaHeight + 1;
+
+        /// <summary>Base player-inventory height with no Featherweight rows: the vanilla
+        /// 4, or 5 when ComfyQuickSlots owns a 5th (armor/quickslot) row.</summary>
+        public static int BaseHeight
+        {
+            get
+            {
+                if (_baseHeight < 0)
+                    _baseHeight = BepInEx.Bootstrap.Chainloader.PluginInfos
+                        .ContainsKey(ComfyQuickSlotsGuid)
+                        ? VanillaHeight + 1
+                        : VanillaHeight;
+                return _baseHeight;
+            }
+        }
 
         private static int _seHash;
 
@@ -65,9 +98,13 @@ namespace BiomeLords.Util
         /// used by the load patch to identify it without an owner reference.</summary>
         public static bool IsPlayerInventory(Inventory inv)
         {
-            return inv != null
-                && inv.GetName() == "Inventory"
-                && inv.GetWidth() == BaseWidth;
+            if (inv == null || inv.GetWidth() != BaseWidth)
+                return false;
+            var name = inv.GetName();
+            // ComfyQuickSlots renames the player inventory, so accept its name too —
+            // otherwise the load pre-grow never fires under CQS and saved
+            // Featherweight rows get compacted/destroyed on load.
+            return name == "Inventory" || name == ComfyQuickSlotsInvName;
         }
 
         /// <summary>Pre-grow an inventory to the load ceiling (only ever raises).

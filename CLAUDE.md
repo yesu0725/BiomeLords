@@ -1,6 +1,6 @@
 # BiomeLords — Project Overview
 
-**Version:** 0.6.0  
+**Version:** 0.6.1  
 **GUID:** `com.taeguk.BiomeLords`  
 **Framework:** BepInEx + Jotunn + HarmonyLib  
 **Valheim compatibility:** `EveryoneMustHaveMod`, `VersionStrictness.Minor`

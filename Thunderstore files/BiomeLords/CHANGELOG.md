@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1
+
+Compatibility fix.
+
+- **Fixed a crash and item-loss bug with ComfyQuickSlots.** The Fallen Valkyrie Lord's Featherweight blessing (extra inventory rows) now correctly accounts for ComfyQuickSlots' 5-row player inventory layout: no more inventory-open crash, equipped armor is no longer swept into a crate when switching blessings, and Featherweight's extra-row items now survive logout/login while ComfyQuickSlots is installed.
+
 ## 0.6.0
 
 Initial public release.
