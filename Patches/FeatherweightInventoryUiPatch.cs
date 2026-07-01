@@ -21,9 +21,22 @@ namespace BiomeLords.Patches
     [HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.Show))]
     public static class InventoryGui_Show_FeatherweightPanel
     {
-        private static float _basePanelHeight = float.NaN;
-        private static float _baseBkgHeight   = float.NaN;
+        private static float _basePanelHeight  = float.NaN;
+        private static float _baseBkgHeight    = float.NaN;
+        private static float _basePanelPosY    = float.NaN;
+        private static float _baseBkgPosY      = float.NaN;
+        private static float _baseContainerPosY = float.NaN;
 
+        /// <summary>Extra downward clearance (px) added to the chest shift on top of the
+        /// exact row-height delta. The container window docks flush against the player
+        /// grid's last row (especially under ComfyQuickSlots), so an exact row-height
+        /// shift leaves the chest's header bar just grazing the bottom extra row. This
+        /// small gap separates them cleanly. Tunable if it looks too tight / too loose.</summary>
+        private const float ContainerClearancePx = 22f;
+
+        // HarmonyAfter CQS so that when ComfyQuickSlots is installed we run after its own
+        // InventoryGui.Show postfix (which pins the container grid). Harmless otherwise.
+        [HarmonyAfter("com.bruce.valheim.comfyquickslots")]
         [HarmonyPostfix]
         public static void Postfix(InventoryGui __instance)
         {
@@ -40,11 +53,12 @@ namespace BiomeLords.Patches
             if (gui == null || player == null || gui.m_player == null || gui.m_playerGrid == null)
                 return;
 
-            // Under ComfyQuickSlots the backdrop is its own "ExtInvGrid" image, which
-            // it re-sizes one frame after Show — clobbering anything we set here. Leave
-            // the panel alone; InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop
-            // extends CQS's backdrop after CQS runs instead.
-            if (FeatherweightInventory.ComfyQuickSlotsLoaded)
+            // An incompatible slot-expansion mod (ExtraSlots / AzuExtendedPlayerInventory)
+            // owns the player grid height AND its own panel/backdrop layout. Featherweight
+            // adds no rows in that configuration, so leave the whole inventory UI untouched —
+            // otherwise we'd stretch the panel by (GetHeight() - BaseHeight) rows and leave a
+            // large empty backdrop below the real slots.
+            if (FeatherweightInventory.IncompatibleSlotModLoaded)
                 return;
 
             int rows = player.GetInventory().GetHeight();
@@ -54,25 +68,80 @@ namespace BiomeLords.Patches
             float space = gui.m_playerGrid.m_elementSpace;
             float delta = extraRows * space;
 
-            // Cache the vanilla base sizes the first time so repeated opens (and
-            // toggling the blessing on/off) always compute from the same baseline.
-            var panel = gui.m_player;
-            if (float.IsNaN(_basePanelHeight)) _basePanelHeight = panel.sizeDelta.y;
-            SetHeight(panel, _basePanelHeight + delta);
-
-            var bkg = FindBackdrop(panel);
-            if (bkg != null)
+            // The player grid lays its cells out downward from the top, so the extra
+            // Featherweight rows extend DOWN past the base grid's bottom. Grow the player
+            // panel + backdrop downward (top edge fixed) to frame those rows.
+            //
+            // SKIP this under ComfyQuickSlots: there the player backdrop is CQS's own
+            // "ExtInvGrid" image, which CQS re-sizes one frame after Show (clobbering
+            // anything we set) — InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop
+            // extends that backdrop after CQS runs instead.
+            if (!FeatherweightInventory.ComfyQuickSlotsLoaded)
             {
-                if (float.IsNaN(_baseBkgHeight)) _baseBkgHeight = bkg.sizeDelta.y;
-                SetHeight(bkg, _baseBkgHeight + delta);
+                // Cache the vanilla base sizes/positions the first time so repeated opens
+                // (and toggling the blessing on/off) always compute from the same baseline.
+                var panel = gui.m_player;
+                if (float.IsNaN(_basePanelHeight))
+                {
+                    _basePanelHeight = panel.sizeDelta.y;
+                    _basePanelPosY   = panel.anchoredPosition.y;
+                }
+                GrowDownward(panel, _basePanelHeight, _basePanelPosY, delta);
+
+                var bkg = FindBackdrop(panel);
+                if (bkg != null)
+                {
+                    if (float.IsNaN(_baseBkgHeight))
+                    {
+                        _baseBkgHeight = bkg.sizeDelta.y;
+                        _baseBkgPosY   = bkg.anchoredPosition.y;
+                    }
+                    GrowDownward(bkg, _baseBkgHeight, _baseBkgPosY, delta);
+                }
+            }
+
+            // Push the whole container (chest) panel DOWN by the same delta so it sits
+            // below the extra rows instead of covering them ("the additional rows are
+            // underneath the chest UI"). This applies in BOTH the vanilla and CQS cases:
+            //   • Neither vanilla `UpdateContainer` nor CQS ever moves `m_container` itself
+            //     — vanilla only toggles its active state, and CQS only repositions the
+            //     container GRID root (a child of m_container) to a fixed config point.
+            //   • Because the CQS-positioned grid root is a child of m_container, moving
+            //     m_container moves the whole chest (backdrop + header + grid) together and
+            //     the grid keeps its CQS-relative offset. So a single m_container shift is
+            //     correct with or without CQS.
+            // The shift persists for the life of the window since nothing else writes
+            // m_container.anchoredPosition.
+            var container = gui.m_container;
+            if (container != null)
+            {
+                if (float.IsNaN(_baseContainerPosY))
+                    _baseContainerPosY = container.anchoredPosition.y;
+                // Add a small clearance gap on top of the exact row-height delta so the
+                // chest's header bar doesn't graze the bottom extra row. Only when the
+                // blessing is actually adding rows — with delta == 0 the chest returns to
+                // exactly its base position (no stray gap when un-blessed).
+                float gap = delta > 0f ? ContainerClearancePx : 0f;
+                var cpos = container.anchoredPosition;
+                cpos.y = _baseContainerPosY - delta - gap;   // -y = down in anchored space
+                container.anchoredPosition = cpos;
             }
         }
 
-        private static void SetHeight(RectTransform rt, float height)
+        /// <summary>Grows a RectTransform's height from <paramref name="baseHeight"/> by
+        /// <paramref name="delta"/> while keeping its TOP edge fixed in place — i.e. all
+        /// growth extends downward, matching the player grid (which lays its cells out
+        /// downward from the top). Reads `rt.pivot.y` at runtime so it's correct regardless
+        /// of how the panel is actually pivoted, instead of assuming a direction.</summary>
+        private static void GrowDownward(RectTransform rt, float baseHeight, float basePosY, float delta)
         {
             var size = rt.sizeDelta;
-            size.y = height;
+            size.y = baseHeight + delta;
             rt.sizeDelta = size;
+
+            var pos = rt.anchoredPosition;
+            pos.y = basePosY - (1f - rt.pivot.y) * delta;
+            rt.anchoredPosition = pos;
         }
 
         /// <summary>Find the panel backdrop: the largest UI Image directly under the

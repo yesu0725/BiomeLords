@@ -268,7 +268,10 @@ player inventory always reloads at 8×4. This prefix detects the player inventor
 pre-grows it to a safe ceiling **before** items are read, so items saved in Featherweight's
 extra rows land in their slots instead of being compacted into the base grid — or
 **destroyed** if the base grid is full (`Inventory.AddItem`). Height is then finalised on
-spawn.
+spawn.  
+**Incompatible mods:** no-ops entirely (`FeatherweightInventory.GrowForLoad` returns
+immediately) when ExtraSlots or AzuExtendedPlayerInventory is loaded — see
+[systems.md § Incompatible slot-expansion mods](systems.md#incompatible-slot-expansion-mods-extraslots-azuextendedplayerinventory).
 
 ### `Player_OnSpawned_BlessingPersistence` (`Patches/BlessingPersistencePatch.cs`)
 
@@ -286,24 +289,54 @@ fetched as `ZNetScene.GetPrefab("CargoCrate")`, falling back to the Cart's own
 crate fills up a fresh one is spawned (fanned out in a small arc). We deliberately do *not*
 enlarge a single crate — a `Container` rebuilds its inventory from the **prefab** width/height
 on world reload, so an over-sized crate would lose the surplus items on reload. Ground-drop
-is only a last resort if the CargoCrate prefab can't be found at all.
+is only a last resort if the CargoCrate prefab can't be found at all.  
+**Incompatible mods:** `Reconcile`/`Collapse` (both funnel through `FeatherweightInventory.SetHeight`)
+no-op when ExtraSlots or AzuExtendedPlayerInventory is loaded, so BiomeLords never resizes the
+grid or crates items sitting in rows that actually belong to the other mod. See
+[systems.md § Incompatible slot-expansion mods](systems.md#incompatible-slot-expansion-mods-extraslots-azuextendedplayerinventory).
 
 ### `InventoryGui_Show_FeatherweightPanel` (`Patches/FeatherweightInventoryUiPatch.cs`)
 
-**Target:** `InventoryGui.Show` postfix  
-**What it does:** Stretches the player panel (`m_player`) and its backdrop image to cover
-Featherweight's extra rows so they sit inside the normal inventory frame. The slots
-themselves need no work — `InventoryGrid` builds every cell from the same `m_elementPrefab`
-and auto-resizes the grid root, so the extra rows already have identical slot art, key
-bindings and tooltips. Height delta = `extraRows × m_elementSpace`, computed from cached
-vanilla base sizes so repeated opens / blessing toggles stay stable.  
+**Target:** `InventoryGui.Show` postfix, `[HarmonyAfter("com.bruce.valheim.comfyquickslots")]`  
+**What it does:** Two independent jobs, so the extra Featherweight rows sit inside the normal
+frame **and** aren't covered by the chest window when a container is open. Height/shift delta
+= `extraRows × m_playerGrid.m_elementSpace` (`extraRows = inventory height −
+FeatherweightInventory.BaseHeight`, where `BaseHeight` is CQS-aware: 4 vanilla / 5 under CQS).
+
+1. **Player panel + backdrop (vanilla only):** `GrowDownward` stretches `m_player` and its
+   backdrop image downward with the **top** edge pinned (pivot-aware via `rt.pivot.y`), so the
+   extra rows are framed. The slots themselves need no work — `InventoryGrid` builds every cell
+   from the same `m_elementPrefab` and auto-resizes the grid root. **Skipped under CQS**, where
+   the player backdrop is CQS's own `"ExtInvGrid"` image (re-sized every grid refresh by CQS,
+   clobbering anything set here); `InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop`
+   handles that backdrop instead.
+
+2. **Chest panel shift (both vanilla AND CQS):** the player grid lays its cells out downward
+   from the top, so the extra rows extend **below** the base grid — into the space the
+   container window (`m_container`) occupies (it docks directly under the player panel and is
+   drawn on top, hiding those rows: "the additional rows are underneath the chest UI"). So
+   `m_container.anchoredPosition.y` is shifted **down** by `delta` plus a small fixed clearance
+   `ContainerClearancePx` (22 px) — the chest docks flush against the player grid's last row
+   (especially under CQS), so an exact row-height shift alone leaves the chest's header bar
+   grazing the bottom extra row; the clearance separates them cleanly. The shift works in both
+   cases because **nothing else ever moves `m_container`**: vanilla `UpdateContainer` only
+   toggles its active state, and CQS only repositions the container *grid root* (a child of
+   `m_container`) to a fixed config point `(40, -437)`. Since that CQS-positioned grid root is
+   a child of `m_container`, shifting `m_container` moves the whole chest (backdrop + header +
+   grid) together while the grid keeps its CQS-relative offset — one shift is correct with or
+   without CQS. Computed from a cached base position, so repeated opens / blessing toggles stay
+   stable; with no blessing `delta == 0` (and no clearance) returns the chest to its base.  
+**`HarmonyAfter` CQS:** ensures this postfix runs after CQS's own `InventoryGui.Show` postfix
+(which pins the container grid). CQS doesn't touch `m_container` so ordering isn't strictly
+required for correctness, but it keeps us robust if that ever changes.  
 **Gotcha:** Fully defensive (try/catch, null-checks) and uses a string-based `GetComponent`
 to find the backdrop without referencing `UnityEngine.UI`. If the panel hierarchy differs it
 degrades to "rows extend slightly past the frame" rather than throwing.  
-**CQS interop:** early-returns when `FeatherweightInventory.ComfyQuickSlotsLoaded` — under
-ComfyQuickSlots the panel backdrop is owned by CQS's own `"ExtInvGrid"` image, which CQS
-re-sizes every grid refresh, clobbering anything set here. See
-`InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop` below.
+**Incompatible mods:** returns immediately (no panel/backdrop/chest changes at all) when
+ExtraSlots or AzuExtendedPlayerInventory is loaded, since those mods already grow the player
+grid — without this guard `extraRows` would be computed as large and positive even though
+Featherweight itself contributes nothing, stretching a large empty backdrop below the real
+slots. See [systems.md § Incompatible slot-expansion mods](systems.md#incompatible-slot-expansion-mods-extraslots-azuextendedplayerinventory).
 
 ### `InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop` (`Patches/FeatherweightInventoryUiPatch.cs`)
 

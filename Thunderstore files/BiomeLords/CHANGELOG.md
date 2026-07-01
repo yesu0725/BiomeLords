@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2
+
+Compatibility fix.
+
+- **Fixed a stretched/broken inventory panel with Shudnal ExtraSlots or AzuExtendedPlayerInventory installed.** Both of those mods grow the player inventory and manage the extra rows themselves. BiomeLords now detects either one and stops adding its own Featherweight rows (and stops resizing the inventory window), which previously left a large empty area below your slots. The Featherweight blessing's raised carry-weight cap still works normally — only the extra-row part is disabled when one of these mods is present. ComfyQuickSlots is unaffected and remains fully compatible.
+
 ## 0.6.1
 
 Compatibility fix.

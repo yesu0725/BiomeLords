@@ -393,10 +393,11 @@ Drives the Fallen Valkyrie Lord blessing's two mechanics (both gated on
   dimensions, so: `Inventory_Load_FeatherweightExpand` pre-grows the player inventory before
   items load (preventing extra-row items being compacted/destroyed); the spawn re-apply calls
   `Reconcile()` to set the final height; `InventoryGui_Show_FeatherweightPanel` stretches the
-  window backdrop to wrap the rows. Switching away spills the extra rows into one or more
-  `CargoCrate`s (`Collapse()` — multiple default crates, never an over-sized one, since a
-  Container rebuilds from prefab size on reload). On death the tombstone copies the inventory
-  size, so nothing is lost.
+  window backdrop to wrap the rows **and pushes the chest panel (`m_container`) down** so the
+  extra rows aren't hidden behind it when a container is open. Switching away spills the extra
+  rows into one or more `CargoCrate`s (`Collapse()` — multiple default crates, never an
+  over-sized one, since a Container rebuilds from prefab size on reload). On death the tombstone
+  copies the inventory size, so nothing is lost.
 
 ### ComfyQuickSlots compatibility
 
@@ -430,12 +431,50 @@ own backdrop image (`"ExtInvGrid"`, cloned from vanilla `"Bkg"`) and re-sizes it
 `InventoryGrid.UpdateInventory` using a hardcoded `num = 1` (rows beyond vanilla 4) →
 `height = 300 + 75·num`, `anchoredPosition.y = -35·num`, `width = 590`. That clobbered
 BiomeLords' own panel resize and ignored active Featherweight rows. Resolution: when CQS is
-loaded, `InventoryGui_Show_FeatherweightPanel` no-ops (stops touching `gui.m_player`/the
-vanilla backdrop) and a new `[HarmonyAfter("com.bruce.valheim.comfyquickslots")]` postfix,
+loaded, `InventoryGui_Show_FeatherweightPanel` **skips the player-backdrop grow** (stops
+touching `gui.m_player`/the vanilla backdrop) and a
+`[HarmonyAfter("com.bruce.valheim.comfyquickslots")]` postfix,
 `InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop`, re-applies CQS's *own* formula to
 CQS's *own* `"ExtInvGrid"` but with the true `num = height − VanillaHeight` (1 + active
 Featherweight rows), so the single backdrop always covers exactly the rows actually present.
 No-op without CQS; fully try/catch-wrapped.
+
+**Chest-panel shift (both vanilla and CQS).** Whether or not CQS is loaded,
+`InventoryGui_Show_FeatherweightPanel` also shifts the whole chest window (`m_container`) **down**
+by `extraRows × m_elementSpace` plus a small fixed clearance (`ContainerClearancePx`, 22 px) so
+the extra rows — which the grid lays out *below* the base rows — aren't covered by the chest UI
+("the additional rows are underneath the chest UI"). This works in both cases because nothing
+else ever moves `m_container`: vanilla `UpdateContainer` only toggles its active state, and CQS
+only repositions the container *grid root* (a child of `m_container`) to a fixed config point
+`(40, −437)`. Since that grid root is a child, moving `m_container` carries the whole chest
+(backdrop + header + grid) down together while preserving CQS's relative offset. Computed from a
+cached base position; with the blessing off `delta == 0` (and no clearance) so the chest returns
+to exactly its base.
+
+### Incompatible slot-expansion mods (ExtraSlots, AzuExtendedPlayerInventory)
+
+Unlike ComfyQuickSlots (which claims one fixed, known-size row that Featherweight stacks
+above), [Shudnal ExtraSlots](https://thunderstore.io/c/valheim/p/Shudnal/ExtraSlots/) and
+[AzuExtendedPlayerInventory](https://thunderstore.io/c/valheim/p/Azumatt/AzuExtendedPlayerInventory/)
+both grow the player grid by an admin/user-configurable amount and manage that space
+themselves. `FeatherweightInventory` has no way to know which rows they own, so instead of
+trying to coexist it fully backs off: `IncompatibleSlotModLoaded` checks
+`BepInEx.Bootstrap.Chainloader.PluginInfos` for `"shudnal.ExtraSlots"` or
+`"Azumatt.AzuExtendedPlayerInventory"` (cached on first read), and when true:
+
+- `ExtraRows` reports `0` — the blessing keeps its carry-weight bonus but grants no rows.
+- `GrowForLoad` and `SetHeight` (used by both `Reconcile` and `Collapse`) no-op entirely,
+  so BiomeLords never resizes the grid or crates "stray" items that actually belong to the
+  other mod's rows.
+- `InventoryGui_Show_FeatherweightPanel` (`Patches/FeatherweightInventoryUiPatch.cs`) also
+  no-ops, for the same reason as the height guards: with the grid already grown by the other
+  mod, `extraRows = GetHeight() − BaseHeight` is large and positive even though Featherweight
+  contributes nothing, so without this guard the panel/backdrop/chest shift would stretch a
+  large empty area below the real slots.
+
+Net effect: with either mod installed, Featherweight behaves as carry-cap-only — identical
+to how it'd behave with `FallerValkyrieExtraRows` set to 0 — and the other mod's own UI is
+left completely untouched.
 
 ---
 

@@ -42,6 +42,36 @@ namespace BiomeLords.Util
         /// alongside the vanilla "Inventory" name when identifying the player grid.</summary>
         private const string ComfyQuickSlotsInvName = "ComfyQuickSlotsInventory";
 
+        /// <summary>GUIDs of inventory-expansion mods that already add extra slot rows to the
+        /// player inventory. When any of these is installed, Featherweight's extra-row buff is
+        /// suppressed (ExtraRows → 0) so it doesn't fight another mod over the grid height —
+        /// only the carry-weight side of the blessing remains. ComfyQuickSlots is deliberately
+        /// NOT in this list: it claims a single fixed row and Featherweight stacks cleanly
+        /// above it (see BaseHeight / grid y ≥ 5 handling).</summary>
+        private static readonly string[] IncompatibleSlotModGuids =
+        {
+            "shudnal.ExtraSlots",                 // Shudnal ExtraSlots
+            "Azumatt.AzuExtendedPlayerInventory", // AzuExtendedPlayerInventory
+        };
+
+        private static int _incompatibleSlotMod = -1;
+
+        /// <summary>True if a slot-expansion mod incompatible with Featherweight's extra rows
+        /// is installed (cached on first query). Detected by BepInEx plugin GUID.</summary>
+        public static bool IncompatibleSlotModLoaded
+        {
+            get
+            {
+                if (_incompatibleSlotMod < 0)
+                {
+                    var plugins = BepInEx.Bootstrap.Chainloader.PluginInfos;
+                    _incompatibleSlotMod =
+                        IncompatibleSlotModGuids.Any(plugins.ContainsKey) ? 1 : 0;
+                }
+                return _incompatibleSlotMod == 1;
+            }
+        }
+
         private static int _baseHeight = -1;
 
         /// <summary>True if ComfyQuickSlots is loaded (cached on first query).</summary>
@@ -69,7 +99,9 @@ namespace BiomeLords.Util
             AccessTools.FieldRefAccess<Inventory, int>("m_height");
 
         public static int ExtraRows =>
-            Mathf.Max(0, LordConfig.FallerValkyrieExtraRows?.Value ?? 0);
+            IncompatibleSlotModLoaded
+                ? 0
+                : Mathf.Max(0, LordConfig.FallerValkyrieExtraRows?.Value ?? 0);
 
         public static int ExpandedHeight => BaseHeight + ExtraRows;
 
@@ -114,6 +146,9 @@ namespace BiomeLords.Util
         public static void GrowForLoad(Inventory inv)
         {
             if (inv == null) return;
+            // An incompatible slot-expansion mod owns the player grid height — never
+            // pre-grow it, or we'd fight that mod over the inventory dimensions.
+            if (IncompatibleSlotModLoaded) return;
             if (HeightRef(inv) < LoadCeiling)
                 HeightRef(inv) = LoadCeiling;
         }
@@ -136,6 +171,12 @@ namespace BiomeLords.Util
         /// then set the inventory height. Raising the height never crates anything.</summary>
         private static void SetHeight(Player p, int target)
         {
+            // An incompatible slot-expansion mod (ExtraSlots / AzuExtendedPlayerInventory)
+            // owns the player grid height and places items in rows we don't manage. Setting
+            // the height here would crate away that mod's rows, so leave the grid untouched —
+            // Featherweight contributes no extra rows in that configuration.
+            if (IncompatibleSlotModLoaded) return;
+
             var inv = p.GetInventory();
             if (inv == null) return;
 
