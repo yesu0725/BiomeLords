@@ -69,14 +69,16 @@ namespace BiomeLords.Patches
             var current = __instance.GetGuardianPowerName();
             if (string.IsNullOrEmpty(current)) return;
 
-            // GP_VerdantWrath was the Greydwarf GP prior to the Forest's Embrace
-            // rework. Re-equip the new SE if the saved name is the old one.
-            if (current == "GP_VerdantWrath")
+            // The Greydwarf GP has been reworked twice: GP_VerdantWrath, then
+            // GP_ForestsEmbrace, and now GP_Rootward (the Forest's Embrace tree-rest
+            // effect moved into the Quick Sprout blessing). Re-equip the current SE
+            // if the saved name is any obsolete Greydwarf GP id.
+            if (current == "GP_VerdantWrath" || current == "GP_ForestsEmbrace")
             {
                 __instance.SetGuardianPower(GuardianPowerFactory.GreydwarfLordGP);
                 __instance.Message(MessageHud.MessageType.Center,
                     "Your Greydwarf Shaman Lord's spirit has been renewed.");
-                Jotunn.Logger.LogInfo("[BiomeLords] Migrated GP_VerdantWrath → " + GuardianPowerFactory.GreydwarfLordGP);
+                Jotunn.Logger.LogInfo($"[BiomeLords] Migrated {current} → " + GuardianPowerFactory.GreydwarfLordGP);
             }
         }
     }

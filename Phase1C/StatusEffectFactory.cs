@@ -240,9 +240,12 @@ namespace BiomeLords.Phase1C
         }
 
         /// <summary>
-        /// Greydwarf Shaman Lord blessing — a marker SE with no inherent stat
-        /// modifiers. The actual reward (slow healing near Oak trees) is
-        /// applied by OakHealingService while this SE is present.
+        /// Greydwarf Shaman Lord blessing — Forest's Embrace. A marker SE with no
+        /// inherent stat modifiers; its two rewards are driven while this SE is
+        /// present:
+        ///   • Faster crop growth within 30 m (Plant_GetGrowTime_QuickSprout).
+        ///   • Tree-rest healing + extended Rested when sitting by a tree
+        ///     (ForestEmbraceService) — folded in from the old Forsaken Power.
         /// </summary>
         private static void BuildGreydwarfLordSpirit()
         {

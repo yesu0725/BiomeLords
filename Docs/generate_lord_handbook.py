@@ -168,20 +168,24 @@ LORDS = [
         ],
         "trophy": "TrophyGreydwarfShamanLord (bright-green retint of TrophyGreydwarfShaman)",
         "blessing": {
-            "name": "Quick Sprout",
+            "name": "Forest's Embrace",
             "se": "SE_GreydwarfLordSpirit",
-            "tooltip": "Planted crops within 30 m grow about 30% faster while this blessing "
-                       "endures (QuickSproutGrowthPatch).",
+            "tooltip": "Two gifts in one. Quick Sprout: planted crops within 30 m grow about "
+                       "30% faster (QuickSproutGrowthPatch). Forest's Embrace: sit beside a "
+                       "mature tree with no monsters within 30 m to heal — the older the tree, "
+                       "the stronger the gift (1 HP near Beech/Birch up to 5-6 HP near "
+                       "Yggdrasil/Charred trees, every 3 s). After 60 s of seated rest the "
+                       "forest grants a Rested buff; older trees extend it further "
+                       "(Beech/Birch +1, Oak +2, Yggdrasil/Charred +3).",
         },
         "power": {
-            "name": "Forest's Embrace",
-            "gp": "GP_ForestsEmbrace",
-            "tooltip": "The trees themselves shelter you. Standing by any mature tree counts "
-                       "as shelter. Sit beside a tree with no monsters within 30 m to heal — "
-                       "the older the tree, the stronger the gift (1 HP near Beech/Birch up to "
-                       "5-6 HP near Yggdrasil/Charred trees, every 3 s). After 60 s of seated "
-                       "rest the forest grants a Rested buff; older trees extend it further "
-                       "(Beech/Birch +1, Oak +2, Yggdrasil/Charred +3).",
+            "name": "Rootward",
+            "gp": "GP_Rootward",
+            "tooltip": "The grove rises to your defence. On activation you are healed for "
+                       "100 HP, and a grasping TentaRoot erupts on each of your closest "
+                       "enemies — up to 5. Fewer than 5 enemies within 40 m means fewer roots. "
+                       "The roots fight for you and can never harm you, retracting once their "
+                       "work is done.",
         },
     },
     {

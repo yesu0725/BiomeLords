@@ -3,7 +3,8 @@ using BiomeLords.Phase1D;
 
 namespace BiomeLords.Patches
 {
-    /// <summary>Drives all Player.Update ticks (Forest's Embrace + marker-FP effects).</summary>
+    /// <summary>Drives all Player.Update ticks (Forest's Embrace blessing tree-rest
+    /// + marker-FP effects, including Rootward).</summary>
     [HarmonyPatch(typeof(Player), "Update")]
     public static class Player_Update_BiomeLordsTicks
     {

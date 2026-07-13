@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.3
+
+Greydwarf Shaman Lord rework — blessing and Forsaken Power.
+
+- **Blessing renamed to Forest's Embrace.** The Quick Sprout blessing (faster crop growth) now also carries the old Forest's Embrace tree-rest effect: sit beside a mature tree with no monsters nearby to heal over time and earn an extended Rested buff, scaled by the tree's age. Both effects are active together as long as the blessing is held.
+- **New Forsaken Power: Rootward.** Replaces the old Forest's Embrace power. On activation it heals you for 100 HP and erupts a protective TentaRoot on each of your closest enemies — up to 5. The roots fight on your side and can never harm you, retracting once their work is done. Existing players with the old Forsaken Power are upgraded automatically.
+
 ## 0.6.2
 
 Compatibility fix.

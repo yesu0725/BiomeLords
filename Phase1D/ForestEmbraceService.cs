@@ -6,10 +6,13 @@ using BiomeLords.Phase1C;
 namespace BiomeLords.Phase1D
 {
     /// <summary>
-    /// "Forest's Embrace" — the Greydwarf Shaman Lord's Forsaken Power.
-    /// While active, the player heals while standing close to any tree (heal
-    /// scales with tree tier) AND has their comfort level bumped by the
-    /// tree's tier so the vanilla Rested system grants a longer rest buff.
+    /// The tree-rest half of the Greydwarf Shaman Lord's <b>Forest's Embrace</b>
+    /// blessing (folded in from the old Forsaken Power of the same name).
+    /// While the blessing is active, the player heals while sitting close to any
+    /// tree (heal scales with tree tier) AND has their comfort level bumped by
+    /// the tree's tier so the vanilla Rested system grants a longer rest buff.
+    /// The blessing's other half (faster crop growth) lives in
+    /// <see cref="BiomeLords.Patches.Plant_GetGrowTime_QuickSprout"/>.
     /// </summary>
     public static class ForestEmbraceService
     {
@@ -19,7 +22,7 @@ namespace BiomeLords.Phase1D
         private const float SitSecondsRequired  = 60f;   // crouch this long to earn Rested
 
         private static float _nextTick;
-        private static int   _embraceHash;
+        private static int   _blessingHash;
         private static float _sitSecondsAccumulated;
 
         /// <summary>Comfort bonus from the strongest tree currently within range.
@@ -60,27 +63,15 @@ namespace BiomeLords.Phase1D
             var seman = p.GetSEMan();
             if (seman == null) return;
 
-            if (_embraceHash == 0)
-                _embraceHash = GuardianPowerFactory.GreydwarfLordGP.GetStableHashCode();
+            if (_blessingHash == 0)
+                _blessingHash = StatusEffectFactory.GreydwarfLordSpiritSE.GetStableHashCode();
 
-            // Active condition: either (a) the SE marker is on the player from
-            // a previous F-activation, OR (b) the GP is currently equipped AND
-            // its cooldown timer says it's actively running. The "running"
-            // signal is m_guardianPowerCooldown > vanilla cooldown threshold
-            // — but simpler: just check the player's equipped GP name AND
-            // that the SE is in the SEMan.
-            if (!seman.HaveStatusEffect(_embraceHash))
+            // Active condition: the Greydwarf Shaman Lord's blessing SE is on the
+            // player (applied while standing by a pedestal that holds the trophy).
+            if (!seman.HaveStatusEffect(_blessingHash))
             {
                 _sitSecondsAccumulated = 0f;
                 RemoveSitting(seman);
-                if (BiomeLords.Config.LordConfig.DebugLogging != null
-                    && BiomeLords.Config.LordConfig.DebugLogging.Value
-                    && p.GetGuardianPowerName() == GuardianPowerFactory.GreydwarfLordGP
-                    && p.m_guardianPowerCooldown > 0f)
-                {
-                    Jotunn.Logger.LogInfo(
-                        "[BiomeLords] ForestEmbrace: GP equipped + on cooldown but marker SE missing from SEMan.");
-                }
                 return;
             }
 

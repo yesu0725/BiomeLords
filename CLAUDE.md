@@ -1,6 +1,6 @@
 # BiomeLords — Project Overview
 
-**Version:** 0.6.2  
+**Version:** 0.6.3  
 **GUID:** `com.taeguk.BiomeLords`  
 **Framework:** BepInEx + Jotunn + HarmonyLib  
 **Valheim compatibility:** `EveryoneMustHaveMod`, `VersionStrictness.Minor`
@@ -75,7 +75,8 @@ BiomeLords/
 │   ├── PowerEffectsService.cs  Marker-based FP tick logic
 │   ├── HiveSightService.cs     Minimap pin service (Seeker FP)
 │   ├── ValkyrieRallyService.cs Group restore burst for Valkyrie's Rally FP
-│   ├── ForestEmbraceService.cs Greydwarf FP tree-healing
+│   ├── ForestEmbraceService.cs Greydwarf blessing tree-rest healing (Forest's Embrace)
+│   ├── RootwardService.cs      Greydwarf FP — heal + summon protective TentaRoots
 │   ├── HowlAura.cs             Visual aura MB for Howl of the Pack
 │   ├── PhantomWolf.cs          Auto-despawn MB for phantom wolf
 │   ├── PlagueCloud.cs          Draugr Lord plague cloud MB

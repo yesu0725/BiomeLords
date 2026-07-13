@@ -74,7 +74,8 @@ See [systems.md](systems.md) for implementation details.
 | `PowerEffectsService` | Marker-based FP tick (Tides Grace, Howl) |
 | `HiveSightService` | Minimap pins for Hive Sight FP |
 | `ValkyrieRallyService` | One-shot group restore burst (HP/Stamina/Eitr/Adrenaline/Shield/Rested) for Valkyrie's Rally FP, broadcast via routed RPC |
-| `ForestEmbraceService` | Tree-healing ticks for Forest's Embrace FP |
+| `ForestEmbraceService` | Tree-rest healing/comfort ticks — now driven by the Greydwarf **blessing** (Forest's Embrace), not a Forsaken Power |
+| `RootwardService` | One-shot Rootward FP burst: heals the caster 100 HP and erupts up to 5 tamed TentaRoots on the closest enemies |
 | `BlessingSystem` | Pedestal → player SE grant logic; persists active blessing in `m_customData` |
 | `PowerClaimSystem` | Lord kill → FP auto-grant |
 | `FeatherweightInventory` | Featherweight blessing: raised carry cap + extra inventory rows + CargoCrate spill on switch; base height is CQS-aware (see [systems.md](systems.md#comfyquickslots-compatibility)) |

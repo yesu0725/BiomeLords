@@ -22,7 +22,7 @@ namespace BiomeLords.Util
         {
             // ---- Forsaken Powers (combat / adventure) -----
             { GuardianPowerFactory.NeckLordGP,      new[] { "Harpoon", "FishingRod", "Wet" } },                  // Tide's Grace → water/harpoon
-            { GuardianPowerFactory.GreydwarfLordGP, new[] { "Sapling_Birch", "Sapling_Beech", "BeechSeeds", "Wood" } }, // Forest's Embrace → sapling/tree
+            { GuardianPowerFactory.GreydwarfLordGP, new[] { "Root", "GreydwarfEye", "Wood" } },                  // Rootward → grasping roots
             { GuardianPowerFactory.DraugrLordGP,    new[] { "Poison", "Ooze", "BloodPudding", "Entrails" } },   // Plague Bearer → poison
             { GuardianPowerFactory.FenringLordGP,   new[] { "WolfFang", "FreezeGland" } },                       // Howl of the Pack
             { GuardianPowerFactory.LoxLordGP,       new[] { "ShieldWood", "ShieldBronzeBuckler", "ShieldIronTower" } }, // Bull Rush → shield
@@ -31,7 +31,7 @@ namespace BiomeLords.Util
 
             // ---- Blessings (chores) -----
             { StatusEffectFactory.NeckLordSpiritSE,      new[] { "FishingBait", "Fish1" } },                   // Fisher's Boon
-            { StatusEffectFactory.GreydwarfLordSpiritSE, new[] { "Carrot", "CarrotSeeds" } },                  // Quick Sprout
+            { StatusEffectFactory.GreydwarfLordSpiritSE, new[] { "Carrot", "CarrotSeeds" } },                  // Forest's Embrace (Quick Sprout + tree-rest)
             { StatusEffectFactory.DraugrLordSpiritSE,    new[] { "IronScrap", "Iron" } },                      // Iron Vein
             { StatusEffectFactory.FenringLordSpiritSE,   new[] { "WolfPelt", "WolfFang", "TrophyWolf" } },     // Pack Whisperer
             { StatusEffectFactory.LoxLordSpiritSE,       new[] { "CookedLoxMeat", "LoxMeat", "Barley" } },     // Hearth Master

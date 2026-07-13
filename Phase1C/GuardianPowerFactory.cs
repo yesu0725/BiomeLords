@@ -13,7 +13,7 @@ namespace BiomeLords.Phase1C
     public static class GuardianPowerFactory
     {
         public const string NeckLordGP      = "GP_TidesGrace";
-        public const string GreydwarfLordGP = "GP_ForestsEmbrace";
+        public const string GreydwarfLordGP = "GP_Rootward";
         public const string DraugrLordGP    = "GP_PlagueBearer";
         public const string FenringLordGP   = "GP_HowlOfThePack";
         public const string LoxLordGP       = "GP_BullRush";
@@ -31,7 +31,10 @@ namespace BiomeLords.Phase1C
         public static void RegisterAll()
         {
             Register(NeckLordGP,      "gp_tidesgrace",      ConfigureTidesGrace);
-            Register(GreydwarfLordGP, "gp_forestsembrace",  ConfigureForestsEmbrace);
+            // Rootward fires once on activation (RootwardService heals the caster
+            // and erupts protective TentaRoots), so it only needs a brief marker
+            // window — not the full 10 min.
+            Register(GreydwarfLordGP, "gp_rootward",        ConfigureRootward, InstantWindow);
             Register(DraugrLordGP,    "gp_plaguebearer",    ConfigurePlagueBearer);
             Register(FenringLordGP,   "gp_howlofthepack",   ConfigureHowlOfThePack);
             Register(LoxLordGP,       "gp_bullrush",        ConfigureBullRush);
@@ -86,12 +89,14 @@ namespace BiomeLords.Phase1C
             //   • NeckWetImmunityPatch nullifies the Wet status's debuffs.
         }
 
-        private static void ConfigureForestsEmbrace(SE_Stats se)
+        private static void ConfigureRootward(SE_Stats se)
         {
-            // Marker only — no innate stats. ForestEmbraceService ticks while
-            // this SE is on the player and: heals based on the strongest tree
-            // within 8 m, and (after 60 s safe-sit) elevates comfort via the
-            // ForestEmbraceComfortPatch so vanilla grants a longer Rested.
+            // Marker only — no innate stats. On the marker's absent → present
+            // transition RootwardService fires a one-shot burst: it heals the
+            // caster for 100 HP and erupts up to 5 protective TentaRoots on the
+            // player's closest enemies. The roots fight for the player (tamed)
+            // and retract/despawn on their own. (The old tree-rest "Forest's
+            // Embrace" effect now lives in the Greydwarf blessing instead.)
         }
 
         private static void ConfigurePlagueBearer(SE_Stats se)

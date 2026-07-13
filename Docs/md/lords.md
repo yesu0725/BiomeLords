@@ -73,18 +73,30 @@ Marker SE granting mastery of water. Duration 600 s, cooldown 1200 s. While acti
 - Surtling Core (1–2)
 - Coal (5–10)
 
-### Blessing — Quick Sprout
-Marker SE (`SE_GreydwarfLordSpirit`). Active effect (`Patches/QuickSproutGrowthPatch.cs`):
-- Planted crops within 30 m grow about 30% faster while the blessing is active.
+### Blessing — Forest's Embrace
+Marker SE (`SE_GreydwarfLordSpirit`). Combines two effects while the blessing is active:
 
-### Forsaken Power — Forest's Embrace (`GP_ForestsEmbrace`)
-Marker SE; `ForestEmbraceService` ticks while this SE is on the player:
+*Quick Sprout* (`Patches/QuickSproutGrowthPatch.cs`):
+- Planted crops within 30 m grow about 30% faster.
+
+*Forest's Embrace* (`Phase1D/ForestEmbraceService.cs`, folded in from the old Forsaken Power):
 - Standing by any mature tree counts as shelter.
 - Sitting beside a tree with no monsters within 30 m heals the player every 3 s — the older
   the tree, the stronger the gift (1 HP near Beech/Birch up to 5–6 HP near Yggdrasil/Charred
   trees).
 - After 60 s of seated rest near a tree, `ForestEmbraceComfortPatch` elevates comfort so
   vanilla grants a longer Rested buff (Beech/Birch +1, Oak +2, Yggdrasil/Charred +3).
+
+### Forsaken Power — Rootward (`GP_Rootward`)
+One-shot burst; `RootwardService` (`Phase1D/RootwardService.cs`) fires on the marker's
+absent → present transition:
+- Heals the caster for **100 HP** (clamped to missing health).
+- Finds the closest hostile creatures within 40 m (excluding tamed companions, other players,
+  and non-hostile wildlife via `BaseAI.IsEnemy`) and erupts a vanilla `TentaRoot` on each —
+  **up to 5**. Fewer than 5 enemies in range ⇒ one root per enemy.
+- Each root is spawned **tamed** (`Character.SetTamed`), so `BaseAI.IsEnemy` flips it to fight
+  the player's enemies and it can never strike the player. A `WardRoot` MonoBehaviour despawns
+  it after 30 s (the vanilla root usually retracts sooner).
 
 ---
 

@@ -81,9 +81,9 @@ namespace BiomeLords.Phase1B
                     { "se_draugrlordspirit_start",         "The Draugr Lord's spirit hardens your strike." },
                     { "se_draugrlordspirit_stop",          "The Draugr Lord's spirit fades." },
 
-                    { "se_greydwarflordspirit",            "Quick Sprout" },
-                    { "se_greydwarflordspirit_tooltip",    "Planted crops within 30 m grow about 30 % faster while this blessing endures." },
-                    { "se_greydwarflordspirit_start",      "The Greydwarf Shaman whispers to the seeds you've sown." },
+                    { "se_greydwarflordspirit",            "Forest's Embrace" },
+                    { "se_greydwarflordspirit_tooltip",    "The Greydwarf Shaman Lord's gift, in two parts.\n<b>Quick Sprout:</b> planted crops within 30 m grow about 30 % faster.\n<b>Forest's Embrace:</b> sit (use the /sit emote or a chair) beside a mature tree with no monsters within 30 m to heal — the older the tree, the stronger the gift (1 HP near Beech up to 6 HP near Charred trees, every 3 seconds). After 60 seconds of seated rest the forest grants you a Rested buff, extended by the tree's age (Beech +1, Oak +2, Yggdrasil/Charred +3)." },
+                    { "se_greydwarflordspirit_start",      "The Greydwarf Shaman whispers to the seeds you've sown, and the forest folds around you." },
                     { "se_greydwarflordspirit_stop",       "The Greydwarf Shaman's whisper fades." },
                     { "biomelords_pedestal_receive",  "Receive blessing" },
                     { "biomelords_pedestal_unknown_trophy", "This is not a Trophy of a Lord." },
@@ -100,11 +100,13 @@ namespace BiomeLords.Phase1B
                     { "gp_tidesgrace_start",          "The tide answers your call." },
                     { "gp_tidesgrace_stop",           "The tide recedes from you." },
 
-                    // Forest's Embrace (Greydwarf Shaman Lord)
-                    { "gp_forestsembrace",            "Forest's Embrace" },
-                    { "gp_forestsembrace_tooltip",    "The trees themselves shelter you.\nStanding by any mature tree counts as shelter.\nSit (use the /sit emote or a chair) beside a tree with no monsters within 30 metres to heal — the older the tree, the stronger the gift (1 HP near Beech up to 6 HP near Charred trees, every 3 seconds). After 60 seconds of seated rest the forest grants you a Rested buff. Older trees grant more comfort, extending the Rested time (Beech +1, Oak +2, Yggdrasil/Charred +3)." },
-                    { "gp_forestsembrace_start",      "The forest folds itself around you." },
-                    { "gp_forestsembrace_stop",       "The forest releases you." },
+                    // Rootward (Greydwarf Shaman Lord) — replaces Forest's Embrace,
+                    // whose tree-rest effect now lives in the Quick Sprout blessing.
+                    { "gp_rootward",                  "Rootward" },
+                    { "gp_rootward_tooltip",          "The grove rises to your defence.\nOn activation you are healed for <b>100 HP</b>, and a grasping TentaRoot erupts on each of your closest enemies — up to <b>5</b>. If fewer than 5 enemies stand within 40 m, only that many roots answer. The roots fight for you and cannot harm you, retracting once their work is done." },
+                    { "gp_rootward_start",            "The roots stir beneath you." },
+                    { "gp_rootward_stop",             "The roots settle back into the earth." },
+                    { "gp_rootward_activate",         "The grove rises to defend you!" },
 
                     // Plague Bearer (Draugr Elite Lord)
                     { "gp_plaguebearer",              "Plague Bearer" },
