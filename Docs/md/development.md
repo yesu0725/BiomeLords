@@ -195,6 +195,9 @@ biomelords_intrinsic  (lists active tuning state)
 - [ ] **Healing Resonance** — shaman cast animation plays; green heal-burst VFX appears; Lord HP increases (if not full); nearby Greydwarves HP increases (if not full); **no damage to the player**; does not fire when Lord is already at full HP; ≥15 s between casts; disabled in Frenzy
 - [ ] **Poison Nova** — fires at ≤50% HP; melee hits after nova show `poison=18` in log; profile mutation persists for rest of fight
 - [ ] `Captured shaman heal cast: anim='<name>', N effect(s).` appears in log on startup (confirms heal VFX capture succeeded)
+- [ ] **Forest's Embrace blessing** — with `SE_GreydwarfLordSpirit` active: planted crops within 30 m grow ~30% faster (Quick Sprout half); sitting beside a mature tree with no monsters within 30 m heals every 3 s, scaling with tree tier, and after 60 s seated grants an extended Rested buff (tree-rest half, folded in from the old Forsaken Power in 0.6.3)
+- [ ] **Rootward FP** — pressing F with 1–5+ hostiles nearby heals the caster up to 100 HP and erupts a TentaRoot on each of the closest hostiles (capped at 5; fewer enemies ⇒ fewer roots); roots fight the caster's enemies and never damage the caster; log shows `Rootward root prefab resolved: 'TentaRoot'` and `Rootward: healed N HP, erupted N protective root(s)`; roots despawn within 30 s
+- [ ] **Rootward migration** — a save with the old `GP_ForestsEmbrace` (or `GP_VerdantWrath`) equipped auto-upgrades to `GP_Rootward` on spawn, with a center message and `Migrated <old> → GP_Rootward` in the log
 
 ### Fenring Lord specific
 

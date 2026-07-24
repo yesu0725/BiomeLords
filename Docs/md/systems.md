@@ -330,6 +330,38 @@ duplicate registration on the same instance via `_registeredOn`.
 
 ---
 
+## RootwardService (`Phase1D/RootwardService.cs`)
+
+Drives **Rootward** (`GP_Rootward`), the Greydwarf Shaman Lord's Forsaken Power — introduced
+in 0.6.3 as a replacement for the old Forest's Embrace FP (whose tree-rest effect moved to the
+Greydwarf blessing; see `ForestEmbraceService`). Ticked by `PowerEffectsService.Tick()`.
+
+**Activation detection:** same transition pattern as Howl of the Pack / Valkyrie's Rally —
+compares the marker SE instance reference each tick; fires exactly once per F-press, on old
+ref ≠ new ref.
+
+**On activation (`Activate`):**
+1. Heals the caster for up to 100 HP (`HealAmount`), clamped to missing health so a
+   full-health cast wastes nothing.
+2. Plays `fx_gdking_rootspawn` + `vfx_lootspawn` at the caster.
+3. `FindClosestEnemies` — scans `Character.GetAllCharacters()` within 40 m
+   (`EnemyScanRadius`), keeping only characters `BaseAI.IsEnemy(player, c)` reports hostile
+   (excludes tamed companions, other players, and passive wildlife), sorts by squared
+   distance, and takes the closest 5 (`MaxRoots`). Fewer hostiles in range ⇒ fewer roots —
+   never padded back up to 5.
+4. `SpawnWardRoot` per target position: snaps to `ZoneSystem.GetGroundHeight`, instantiates the
+   resolved `TentaRoot` prefab (candidate list mirrors `GreydwarfLordBrain`'s Root Spawn:
+   `TentaRoot`, `gd_king_root`, `gdking_root`, `Root`), marks the ZDO non-persistent,
+   `Character.SetTamed(true)` so `BaseAI.IsEnemy` flips it to fight the player's enemies and it
+   can never target the player, and attaches a `WardRoot` MonoBehaviour.
+
+**`WardRoot` (`Phase1D/RootwardService.cs`):** same despawn pattern as `PhantomWolf` — destroys
+the root after `Lifetime` seconds (30 s safety cap; the vanilla TentaRoot usually retracts
+sooner on its own) or immediately if the local player disappears, with a small poof FX, torn
+down through `ZNetScene.Destroy` when networked.
+
+---
+
 ## HowlAura (`Phase1D/HowlAura.cs`)
 
 MonoBehaviour attached to each empowered tame and the Phantom Wolf during Howl activation.

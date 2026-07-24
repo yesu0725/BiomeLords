@@ -370,8 +370,9 @@ The two green/teal vanilla prefabs `fx_summon_start` (green summon burst) and `v
   `StatusEffectFactory` no longer include `fx_summon_start`.
 
 > Still green elsewhere by design: the **Lord summon/spawn** burst (`LordFx`) and a couple of
-> biome-themed blessing effects (`vfx_swamp_mist` on the Draugr blessing, `fx_gdking_rootspawn`
-> on the Greydwarf blessing). Say the word if those should go too.
+> biome-themed effects (`vfx_swamp_mist` on the Draugr blessing, `fx_gdking_rootspawn` on both
+> the Greydwarf blessing's tree-rest heal pulse and the Rootward Forsaken Power's activation
+> burst). Say the word if those should go too.
 
 ---
 
@@ -440,11 +441,13 @@ instance.
 **What it does:** Passive poison resistance from the Draugr Lord blessing — reduces
 incoming poison damage while `SE_DraugrLordSpirit` is active.
 
-### `OakHealingTickPatch` (`Patches/OakHealingTickPatch.cs`)
+### `OakHealingTickPatch` — `Player_Update_BiomeLordsTicks` (`Patches/OakHealingTickPatch.cs`)
 
 **Target:** `Player.Update` postfix  
-**What it does:** While `SE_GreydwarfLordSpirit` active, ticks slow HP regen if the
-player is near a large Oak tree (checks for `Destructible` with matching prefab name).
+**What it does:** Drives all per-frame BiomeLords tick logic for the local player by
+calling `ForestEmbraceService.Tick()` (Greydwarf blessing tree-rest healing/comfort) and
+`PowerEffectsService.Tick()` (marker-based Forsaken Power effects, including Tide's
+Grace, Howl of the Pack, Hive Sight, Valkyrie's Rally, and Rootward).
 
 ### `IronVeinPatch` (`Patches/IronVeinPatch.cs`)
 
@@ -454,8 +457,13 @@ player is near a large Oak tree (checks for `Destructible` with matching prefab 
 ### `ForestEmbraceComfortPatch` (`Patches/ForestEmbraceComfortPatch.cs`)
 
 **Target:** `SE_Rested.CalculateComfortLevel`  
-**What it does:** Adds bonus comfort when Forest's Embrace FP is active and the player
-has been sitting near trees for ≥60 s.
+**What it does:** Adds bonus comfort when the Greydwarf Shaman Lord's blessing
+(`SE_GreydwarfLordSpirit`, "Forest's Embrace") is active and the player has been sitting
+near a mature tree for ≥60 s. Also backs `ForestEmbraceService.IsNearQualifyingTree` so
+standing near a tree counts as shelter immediately, independent of the sit-timer gate.
+Note: this patch predates the 0.6.3 rework and originally watched the Forsaken Power of
+the same name — the tree-rest effect now lives on the blessing instead (see
+`ForestEmbraceService`).
 
 ### `PlantHoverPatch` (`Patches/PlantHoverPatch.cs`) + `QuickSproutGrowthPatch`
 
