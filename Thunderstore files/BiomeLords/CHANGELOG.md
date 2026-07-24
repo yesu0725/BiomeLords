@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.4
+
+Config addition.
+
+- **Lord's Horn crafting recipe is now admin-configurable.** A new `[LordsHorn] Recipe` server-synced config entry lets admins view and change the Workbench requirements for crafting the Lord's Horn (default `NeckTail:5,TrophyDeer:1,Bronze:1`), using the same comma-separated `ItemPrefab:Amount` format as the Hall of the Lords recipe. Takes effect on restart.
+
 ## 0.6.3
 
 Greydwarf Shaman Lord rework — blessing and Forsaken Power.

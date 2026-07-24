@@ -1,9 +1,9 @@
-using System.Collections.Generic;
 using UnityEngine;
 using Jotunn.Managers;
 using Jotunn.Entities;
 using Jotunn.Configs;
 using BiomeLords.Config;
+using BiomeLords.Util;
 
 namespace BiomeLords.Phase1C
 {
@@ -29,6 +29,14 @@ namespace BiomeLords.Phase1C
     public static class PedestalFactory
     {
         public const string PedestalPrefab = "LordsPedestal";
+
+        private static readonly RequirementConfig[] DefaultHallRecipe =
+        {
+            new RequirementConfig { Item = "Stone",        Amount = 40, Recover = true },
+            new RequirementConfig { Item = "FineWood",     Amount = 20, Recover = true },
+            new RequirementConfig { Item = "Flint",        Amount = 10, Recover = true },
+            new RequirementConfig { Item = "SurtlingCore", Amount = 3,  Recover = true },
+        };
 
         private static bool _registered;
 
@@ -58,7 +66,7 @@ namespace BiomeLords.Phase1C
                 Description = "$piece_lordspedestal_desc",
                 PieceTable  = "Hammer",
                 Category    = "Misc",
-                Requirements = ParseRecipe(LordConfig.HallRecipe.Value),
+                Requirements = RecipeParser.Parse(LordConfig.HallRecipe.Value, DefaultHallRecipe, recover: true, logContext: "Hall of the Lords"),
             });
 
             var prefab = piece.PiecePrefab;
@@ -199,47 +207,5 @@ namespace BiomeLords.Phase1C
             return null;
         }
 
-        /// <summary>
-        /// Parses a "Item:Amount,Item:Amount,..." string into Jotunn
-        /// RequirementConfig entries. Silently skips malformed pairs and
-        /// non-positive amounts. Falls back to the default recipe if the
-        /// user wipes the config field.
-        /// </summary>
-        private static RequirementConfig[] ParseRecipe(string csv)
-        {
-            var list = new List<RequirementConfig>();
-            if (!string.IsNullOrWhiteSpace(csv))
-            {
-                foreach (var part in csv.Split(','))
-                {
-                    var trimmed = part.Trim();
-                    if (string.IsNullOrEmpty(trimmed)) continue;
-                    var kv = trimmed.Split(':');
-                    if (kv.Length != 2) continue;
-                    var item = kv[0].Trim();
-                    if (string.IsNullOrEmpty(item)) continue;
-                    if (!int.TryParse(kv[1].Trim(), out var amount)) continue;
-                    if (amount <= 0) continue;
-                    list.Add(new RequirementConfig
-                    {
-                        Item    = item,
-                        Amount  = amount,
-                        Recover = true,
-                    });
-                }
-            }
-
-            if (list.Count == 0)
-            {
-                Jotunn.Logger.LogWarning(
-                    "[BiomeLords] Hall recipe empty / unparseable — falling back to defaults.");
-                list.Add(new RequirementConfig { Item = "Stone",        Amount = 40, Recover = true });
-                list.Add(new RequirementConfig { Item = "FineWood",     Amount = 20, Recover = true });
-                list.Add(new RequirementConfig { Item = "Flint",        Amount = 10, Recover = true });
-                list.Add(new RequirementConfig { Item = "SurtlingCore", Amount = 3,  Recover = true });
-            }
-
-            return list.ToArray();
-        }
     }
 }

@@ -2,6 +2,8 @@ using UnityEngine;
 using Jotunn.Managers;
 using Jotunn.Entities;
 using Jotunn.Configs;
+using BiomeLords.Config;
+using BiomeLords.Util;
 
 namespace BiomeLords.Phase1B
 {
@@ -14,6 +16,13 @@ namespace BiomeLords.Phase1B
     {
         public const string LordsHornPrefab = "LordsHorn";
 
+        private static readonly RequirementConfig[] DefaultHornRecipe =
+        {
+            new RequirementConfig { Item = "NeckTail",   Amount = 5, Recover = false },
+            new RequirementConfig { Item = "TrophyDeer", Amount = 1, Recover = false },
+            new RequirementConfig { Item = "Bronze",     Amount = 1, Recover = false },
+        };
+
         public static void RegisterAll()
         {
             // Cloned visually from the Anniversary Tankard — a drinking-horn-shaped
@@ -23,12 +32,7 @@ namespace BiomeLords.Phase1B
                 Name        = "$item_lordshorn",
                 Description = "$item_lordshorn_desc",
                 CraftingStation = CraftingStations.Workbench,
-                Requirements = new[]
-                {
-                    new RequirementConfig { Item = "NeckTail",   Amount = 5,  Recover = false },
-                    new RequirementConfig { Item = "TrophyDeer", Amount = 1,  Recover = false },
-                    new RequirementConfig { Item = "Bronze",     Amount = 1,  Recover = false },
-                },
+                Requirements = RecipeParser.Parse(LordConfig.HornRecipe.Value, DefaultHornRecipe, recover: false, logContext: "Lord's Horn"),
             });
 
             // Localised strings — wired via Jotunn's Localization manager so the

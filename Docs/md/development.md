@@ -62,6 +62,8 @@ All config entries are admin-only and server-synced via Jotunn. Found in
 | `LordStats.HealthMultiplier` | `<lordId>` | `1.0` | Per-Lord HP multiplier on top of the scaled base HP. |
 | `LordStats.DamageMultiplier` | `<lordId>` | `1.0` | Per-Lord damage multiplier on top of the resolved attack profile (× intrinsic). |
 | `KillRequirements` | `<lordId>` | varies | Kills needed before the Horn can summon that Lord. |
+| `LordsHorn` | `Recipe` | `NeckTail:5,TrophyDeer:1,Bronze:1` | Comma-separated `ItemPrefab:Amount` pairs for crafting the Lord's Horn at the Workbench. Restart required to take effect. |
+| `Hall` | `Recipe` | `Stone:40,FineWood:20,Flint:10,SurtlingCore:3` | Comma-separated `ItemPrefab:Amount` pairs for building the Hall of the Lords. Restart required to take effect. |
 
 ---
 

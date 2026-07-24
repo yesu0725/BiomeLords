@@ -26,6 +26,7 @@ namespace BiomeLords.Config
         public static ConfigEntry<float>  ValkyrieRallyRadius;
         public static ConfigEntry<float>  ValkyrieRallyRestedSeconds;
         public static ConfigEntry<string> HallRecipe;
+        public static ConfigEntry<string> HornRecipe;
 
         private static readonly Dictionary<string, ConfigEntry<int>>   _killReq =
             new Dictionary<string, ConfigEntry<int>>();
@@ -99,6 +100,13 @@ namespace BiomeLords.Config
                 Admin("Comma-separated 'ItemPrefab:Amount' pairs for the Hall of the Lords. " +
                       "Examples: 'Stone:40,FineWood:20,Flint:10,SurtlingCore:3' (default). " +
                       "Use vanilla item prefab names. Amounts ≤ 0 skip that requirement."));
+
+            HornRecipe = cfg.Bind("LordsHorn", "Recipe",
+                "NeckTail:5,TrophyDeer:1,Bronze:1",
+                Admin("Comma-separated 'ItemPrefab:Amount' pairs for crafting the Lord's Horn at " +
+                      "the Workbench. Example: 'NeckTail:5,TrophyDeer:1,Bronze:1' (default). " +
+                      "Use vanilla item prefab names. Amounts ≤ 0 skip that requirement. " +
+                      "Requires a restart to take effect."));
 
             foreach (var lord in LordRegistry.All)
             {
