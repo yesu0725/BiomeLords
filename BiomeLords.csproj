@@ -61,6 +61,8 @@
 
   <PropertyGroup>
     <R2ModManPluginPath>C:\Users\yesu0725\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Mod Test Profile\BepInEx\plugins\BiomeLords</R2ModManPluginPath>
+    <HearthboundPluginPath>C:\Users\yesu0725\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Hearthbound Valheim - Test\BepInEx\plugins\TaegukGaming-BiomeLords</HearthboundPluginPath>
+    <DedicatedServerPluginPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server\BepInEx\plugins\TaegukGaming-BiomeLords</DedicatedServerPluginPath>
   </PropertyGroup>
 
   <Target Name="CopyToPlugins" AfterTargets="Build">
@@ -71,5 +73,13 @@
     <MakeDir Directories="$(R2ModManPluginPath)" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(R2ModManPluginPath)" />
     <Message Text="Copied $(TargetFileName) to r2modman Mod Test Profile" Importance="high" />
+
+    <MakeDir Directories="$(HearthboundPluginPath)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(HearthboundPluginPath)" />
+    <Message Text="Copied $(TargetFileName) to r2modman Hearthbound Valheim - Test profile" Importance="high" />
+
+    <MakeDir Directories="$(DedicatedServerPluginPath)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(DedicatedServerPluginPath)" />
+    <Message Text="Copied $(TargetFileName) to Valheim dedicated server plugins" Importance="high" />
   </Target>
 </Project>
