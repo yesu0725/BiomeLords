@@ -84,7 +84,7 @@ Marker SE (`SE_GreydwarfLordSpirit`). Combines two effects while the blessing is
 - Sitting beside a tree with no monsters within 30 m heals the player every 3 s — the older
   the tree, the stronger the gift (1 HP near Beech/Birch up to 5–6 HP near Yggdrasil/Charred
   trees).
-- After 60 s of seated rest near a tree, `ForestEmbraceComfortPatch` elevates comfort so
+- After 30 s of seated rest near a tree, `ForestEmbraceComfortPatch` elevates comfort so
   vanilla grants a longer Rested buff (Beech/Birch +1, Oak +2, Yggdrasil/Charred +3).
 
 ### Forsaken Power — Rootward (`GP_Rootward`)

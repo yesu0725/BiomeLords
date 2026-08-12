@@ -5,7 +5,7 @@ namespace BiomeLords.Patches
 {
     /// <summary>
     /// While Forest's Embrace is active and the player has been sitting near
-    /// a qualifying tree for 60 s with no monsters within 30 m, bump
+    /// a qualifying tree for 30 s with no monsters within 30 m, bump
     /// Player.GetComfortLevel by the tree's comfort tier so vanilla
     /// automatically grants a longer Rested buff.
     /// </summary>
@@ -37,7 +37,7 @@ namespace BiomeLords.Patches
             if (__instance != Player.m_localPlayer) return;
             if (__result) return; // already sheltered
             // Shelter kicks in the moment you're near any tree under Forest's Embrace,
-            // independent of the 60s sit-for-Rested gate.
+            // independent of the 30s sit-for-Rested gate.
             if (ForestEmbraceService.IsNearQualifyingTree) __result = true;
         }
     }

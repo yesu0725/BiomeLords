@@ -33,6 +33,16 @@
       <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Canvas / RectTransformUtility (storage-window drag math). -->
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- UnityEngine.EventSystems drag handlers (storage-window drag). -->
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="assembly_valheim">
       <HintPath>$(ValheimPath)\valheim_Data\Managed\assembly_valheim.dll</HintPath>
       <Private>false</Private>

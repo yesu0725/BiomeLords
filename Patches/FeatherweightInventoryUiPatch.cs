@@ -15,6 +15,11 @@ namespace BiomeLords.Patches
     /// so this patch stretches the panel (and its background) to cover the added
     /// rows whenever the inventory is opened.
     ///
+    /// This patch owns the PLAYER panel only. Keeping the chest/storage window clear
+    /// of the extra rows is a separate, mod-agnostic concern handled by
+    /// <see cref="BiomeLords.Util.StorageWindowPosition"/> — a configured offset the
+    /// player can also set by dragging the window.
+    ///
     /// Defensive throughout: if the panel layout differs from what we expect it
     /// degrades to "rows extend a little past the frame" rather than throwing.
     /// </summary>
@@ -25,18 +30,7 @@ namespace BiomeLords.Patches
         private static float _baseBkgHeight    = float.NaN;
         private static float _basePanelPosY    = float.NaN;
         private static float _baseBkgPosY      = float.NaN;
-        private static float _baseContainerPosY = float.NaN;
 
-        /// <summary>Extra downward clearance (px) added to the chest shift on top of the
-        /// exact row-height delta. The container window docks flush against the player
-        /// grid's last row (especially under ComfyQuickSlots), so an exact row-height
-        /// shift leaves the chest's header bar just grazing the bottom extra row. This
-        /// small gap separates them cleanly. Tunable if it looks too tight / too loose.</summary>
-        private const float ContainerClearancePx = 22f;
-
-        // HarmonyAfter CQS so that when ComfyQuickSlots is installed we run after its own
-        // InventoryGui.Show postfix (which pins the container grid). Harmless otherwise.
-        [HarmonyAfter("com.bruce.valheim.comfyquickslots")]
         [HarmonyPostfix]
         public static void Postfix(InventoryGui __instance)
         {
@@ -98,33 +92,6 @@ namespace BiomeLords.Patches
                     }
                     GrowDownward(bkg, _baseBkgHeight, _baseBkgPosY, delta);
                 }
-            }
-
-            // Push the whole container (chest) panel DOWN by the same delta so it sits
-            // below the extra rows instead of covering them ("the additional rows are
-            // underneath the chest UI"). This applies in BOTH the vanilla and CQS cases:
-            //   • Neither vanilla `UpdateContainer` nor CQS ever moves `m_container` itself
-            //     — vanilla only toggles its active state, and CQS only repositions the
-            //     container GRID root (a child of m_container) to a fixed config point.
-            //   • Because the CQS-positioned grid root is a child of m_container, moving
-            //     m_container moves the whole chest (backdrop + header + grid) together and
-            //     the grid keeps its CQS-relative offset. So a single m_container shift is
-            //     correct with or without CQS.
-            // The shift persists for the life of the window since nothing else writes
-            // m_container.anchoredPosition.
-            var container = gui.m_container;
-            if (container != null)
-            {
-                if (float.IsNaN(_baseContainerPosY))
-                    _baseContainerPosY = container.anchoredPosition.y;
-                // Add a small clearance gap on top of the exact row-height delta so the
-                // chest's header bar doesn't graze the bottom extra row. Only when the
-                // blessing is actually adding rows — with delta == 0 the chest returns to
-                // exactly its base position (no stray gap when un-blessed).
-                float gap = delta > 0f ? ContainerClearancePx : 0f;
-                var cpos = container.anchoredPosition;
-                cpos.y = _baseContainerPosY - delta - gap;   // -y = down in anchored space
-                container.anchoredPosition = cpos;
             }
         }
 

@@ -1,6 +1,6 @@
 # BiomeLords — Project Overview
 
-**Version:** 0.6.4  
+**Version:** 0.6.5  
 **GUID:** `com.taeguk.BiomeLords`  
 **Framework:** BepInEx + Jotunn + HarmonyLib  
 **Valheim compatibility:** `EveryoneMustHaveMod`, `VersionStrictness.Minor`
@@ -47,6 +47,7 @@ BiomeLords/
 │   ├── IconAssignment.cs       SE icon candidates per blessing
 │   ├── SpriteTinter.cs         Material tint helper
 │   ├── FeatherweightInventory.cs  Featherweight: carry cap + extra rows + CargoCrate spill
+│   ├── StorageWindowPosition.cs   Chest/storage window placement + click-and-drag
 │   └── ConfigurationManagerAttributes.cs  Admin-only config attribute
 ├── Phase1B/                    Creatures, items, events, summons
 │   ├── CreatureFactory.cs      Builds all 7 Lord prefabs

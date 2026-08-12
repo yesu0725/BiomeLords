@@ -86,7 +86,7 @@ namespace BiomeLords.Phase1B
                     { "se_draugrlordspirit_stop",          "The Draugr Lord's spirit fades." },
 
                     { "se_greydwarflordspirit",            "Forest's Embrace" },
-                    { "se_greydwarflordspirit_tooltip",    "The Greydwarf Shaman Lord's gift, in two parts.\n<b>Quick Sprout:</b> planted crops within 30 m grow about 30 % faster.\n<b>Forest's Embrace:</b> sit (use the /sit emote or a chair) beside a mature tree with no monsters within 30 m to heal — the older the tree, the stronger the gift (1 HP near Beech up to 6 HP near Charred trees, every 3 seconds). After 60 seconds of seated rest the forest grants you a Rested buff, extended by the tree's age (Beech +1, Oak +2, Yggdrasil/Charred +3)." },
+                    { "se_greydwarflordspirit_tooltip",    "The Greydwarf Shaman Lord's gift, in two parts.\n<b>Quick Sprout:</b> planted crops within 30 m grow about 30 % faster.\n<b>Forest's Embrace:</b> sit (use the /sit emote or a chair) beside a mature tree with no monsters within 30 m to heal — the older the tree, the stronger the gift (1 HP near Beech up to 6 HP near Charred trees, every 3 seconds). After 30 seconds of seated rest the forest grants you a Rested buff, extended by the tree's age (Beech +1, Oak +2, Yggdrasil/Charred +3)." },
                     { "se_greydwarflordspirit_start",      "The Greydwarf Shaman whispers to the seeds you've sown, and the forest folds around you." },
                     { "se_greydwarflordspirit_stop",       "The Greydwarf Shaman's whisper fades." },
                     { "biomelords_pedestal_receive",  "Receive blessing" },

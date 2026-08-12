@@ -153,6 +153,47 @@ namespace BiomeLords.Util
                 HeightRef(inv) = LoadCeiling;
         }
 
+        /// <summary>
+        /// Raise the local player's inventory to its blessed height if it has drifted
+        /// below it. Called from the capacity-check patches so the extra rows are real
+        /// capacity, not just visible slots.
+        ///
+        /// Vanilla decides "is there room?" purely from `m_width * m_height`
+        /// (Inventory.CanAddItem / HaveEmptySlot / GetEmptySlots, and FindEmptySlot
+        /// inside AddItem). Placing an item at an explicit grid position instead only
+        /// checks GetItemAt(x, y) — which is why dragging into the extra rows always
+        /// worked even when the height had reverted, while auto-pickup reported a full
+        /// inventory. Reconcile() alone can't hold the invariant: it runs on spawn and
+        /// on a blessing change, so anything that rebuilds the inventory afterwards
+        /// leaves the height stale until the next spawn.
+        ///
+        /// Deliberately one-directional — it only ever RAISES, never lowers. Lowering
+        /// is Reconcile/Collapse's job because that path has to crate the items left
+        /// beyond the new height first; a lowering call from here could silently strand
+        /// or destroy them.
+        /// </summary>
+        public static void EnsureExpanded(Inventory inv)
+        {
+            if (inv == null || IncompatibleSlotModLoaded) return;
+
+            int target = ExpandedHeight;
+            // Cheap path first: already tall enough (the overwhelmingly common case, and
+            // these patches sit on per-frame auto-pickup checks). Skips the owner and
+            // status-effect lookups entirely.
+            if (HeightRef(inv) >= target) return;
+
+            var p = Player.m_localPlayer;
+            if (p == null || p.GetInventory() != inv) return;
+            if (!HasBlessing(p)) return;
+
+            if (LordConfig.DebugLogging.Value)
+                Jotunn.Logger.LogInfo(
+                    $"[BiomeLords] Featherweight: inventory height had drifted to {HeightRef(inv)}, " +
+                    $"restoring to {target} so the extra rows count as real capacity.");
+
+            HeightRef(inv) = target;
+        }
+
         /// <summary>Set the inventory to its correct height for the player's current
         /// blessing state: expanded while Featherweight is active, base otherwise.
         /// Any items beyond the target height are crated.</summary>

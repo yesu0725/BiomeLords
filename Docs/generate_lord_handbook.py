@@ -174,7 +174,7 @@ LORDS = [
                        "30% faster (QuickSproutGrowthPatch). Forest's Embrace: sit beside a "
                        "mature tree with no monsters within 30 m to heal — the older the tree, "
                        "the stronger the gift (1 HP near Beech/Birch up to 5-6 HP near "
-                       "Yggdrasil/Charred trees, every 3 s). After 60 s of seated rest the "
+                       "Yggdrasil/Charred trees, every 3 s). After 30 s of seated rest the "
                        "forest grants a Rested buff; older trees extend it further "
                        "(Beech/Birch +1, Oak +2, Yggdrasil/Charred +3).",
         },

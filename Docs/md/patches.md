@@ -295,44 +295,72 @@ no-op when ExtraSlots or AzuExtendedPlayerInventory is loaded, so BiomeLords nev
 grid or crates items sitting in rows that actually belong to the other mod. See
 [systems.md § Incompatible slot-expansion mods](systems.md#incompatible-slot-expansion-mods-extraslots-azuextendedplayerinventory).
 
+### `FeatherweightCapacityPatches` (`Patches/FeatherweightCapacityPatch.cs`)
+
+**Targets:** five `Inventory` prefixes (nested patch classes) —
+`CanAddItem(ItemData, int)`, `AddItem(ItemData)`,
+`AddItem(string, int, int, int, long, string, Vector2i, bool)`, `HaveEmptySlot()`,
+`GetEmptySlots()`. Each calls `FeatherweightInventory.EnsureExpanded(__instance)`.
+
+**Why it exists.** Vanilla answers *"is there room?"* purely from `m_width * m_height`:
+
+| Vanilla method | Check |
+|---|---|
+| `CanAddItem` | `FindFreeStackSpace(...) + (m_width * m_height - m_inventory.Count) * maxStack >= stack` |
+| `HaveEmptySlot` | `m_inventory.Count < m_width * m_height` |
+| `GetEmptySlots` | `m_height * m_width - m_inventory.Count` |
+| `AddItem(ItemData)` | `FindEmptySlot(TopFirst(item))`, which scans `y` over `0 .. m_height` |
+
+If the height has drifted back to the vanilla 4, all of those report a full inventory
+while the extra rows sit visibly empty — auto-pickup (`Player.AutoPickup` gates on
+`CanAddItem`), manual pickup (`Humanoid.Pickup` → `AddItem` → `"$msg_noroom"`), crafting
+and container take-all all refuse. **Dragging an item in by hand still works**, because
+the explicit-position `AddItem(item, pos)` overload only checks `GetItemAt(x, y)` and never
+consults the height — which is exactly the asymmetry the bug report described.
+
+`Reconcile` alone can't hold the invariant: it runs on spawn and on a blessing change, so
+anything that rebuilds the inventory afterwards leaves the height stale until the next
+spawn. These prefixes re-assert it at the point of use instead.
+
+**Safety.** `EnsureExpanded` only ever **raises**, and only the local player's own
+inventory while the blessing is active. Lowering stays exclusive to `Reconcile`/`Collapse`,
+which crate the items beyond the new height first — a lowering call from here could
+silently strand or destroy them. Every prefix is try/catch-wrapped so a failure degrades to
+the un-corrected height rather than blocking a vanilla inventory operation.
+
+**Cost.** `EnsureExpanded` short-circuits on a single int compare when the height is already
+correct — the normal case — before touching `Player.m_localPlayer` or the status effect
+lookup. That matters because `CanAddItem` runs inside `Player.AutoPickup`'s per-frame sweep
+over nearby colliders. Container inventories cost two extra dereferences and no more.
+
+**Incompatible mods:** returns immediately when ExtraSlots or AzuExtendedPlayerInventory is
+loaded, like every other Featherweight height path.
+
+**Debugging:** with `DebugLogging` on, logs `inventory height had drifted to N, restoring to M`
+whenever it actually corrects something — the way to confirm the drift and see what triggers it.
+
 ### `InventoryGui_Show_FeatherweightPanel` (`Patches/FeatherweightInventoryUiPatch.cs`)
 
-**Target:** `InventoryGui.Show` postfix, `[HarmonyAfter("com.bruce.valheim.comfyquickslots")]`  
-**What it does:** Two independent jobs, so the extra Featherweight rows sit inside the normal
-frame **and** aren't covered by the chest window when a container is open. Height/shift delta
-= `extraRows × m_playerGrid.m_elementSpace` (`extraRows = inventory height −
-FeatherweightInventory.BaseHeight`, where `BaseHeight` is CQS-aware: 4 vanilla / 5 under CQS).
+**Target:** `InventoryGui.Show` postfix  
+**What it does:** Stretches the player panel so the extra Featherweight rows sit inside the
+normal frame. Height delta = `extraRows × m_playerGrid.m_elementSpace`
+(`extraRows = inventory height − FeatherweightInventory.BaseHeight`, where `BaseHeight` is
+CQS-aware: 4 vanilla / 5 under CQS).
 
-1. **Player panel + backdrop (vanilla only):** `GrowDownward` stretches `m_player` and its
-   backdrop image downward with the **top** edge pinned (pivot-aware via `rt.pivot.y`), so the
-   extra rows are framed. The slots themselves need no work — `InventoryGrid` builds every cell
-   from the same `m_elementPrefab` and auto-resizes the grid root. **Skipped under CQS**, where
-   the player backdrop is CQS's own `"ExtInvGrid"` image (re-sized every grid refresh by CQS,
-   clobbering anything set here); `InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop`
-   handles that backdrop instead.
+`GrowDownward` stretches `m_player` and its backdrop image downward with the **top** edge
+pinned (pivot-aware via `rt.pivot.y`), so the extra rows are framed. The slots themselves need
+no work — `InventoryGrid` builds every cell from the same `m_elementPrefab` and auto-resizes
+the grid root. **Skipped under CQS**, where the player backdrop is CQS's own `"ExtInvGrid"`
+image (re-sized every grid refresh by CQS, clobbering anything set here);
+`InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop` handles that backdrop instead.
 
-2. **Chest panel shift (both vanilla AND CQS):** the player grid lays its cells out downward
-   from the top, so the extra rows extend **below** the base grid — into the space the
-   container window (`m_container`) occupies (it docks directly under the player panel and is
-   drawn on top, hiding those rows: "the additional rows are underneath the chest UI"). So
-   `m_container.anchoredPosition.y` is shifted **down** by `delta` plus a small fixed clearance
-   `ContainerClearancePx` (22 px) — the chest docks flush against the player grid's last row
-   (especially under CQS), so an exact row-height shift alone leaves the chest's header bar
-   grazing the bottom extra row; the clearance separates them cleanly. The shift works in both
-   cases because **nothing else ever moves `m_container`**: vanilla `UpdateContainer` only
-   toggles its active state, and CQS only repositions the container *grid root* (a child of
-   `m_container`) to a fixed config point `(40, -437)`. Since that CQS-positioned grid root is
-   a child of `m_container`, shifting `m_container` moves the whole chest (backdrop + header +
-   grid) together while the grid keeps its CQS-relative offset — one shift is correct with or
-   without CQS. Computed from a cached base position, so repeated opens / blessing toggles stay
-   stable; with no blessing `delta == 0` (and no clearance) returns the chest to its base.  
-**`HarmonyAfter` CQS:** ensures this postfix runs after CQS's own `InventoryGui.Show` postfix
-(which pins the container grid). CQS doesn't touch `m_container` so ordering isn't strictly
-required for correctness, but it keeps us robust if that ever changes.  
+**Scope:** this patch owns the **player** panel only. Keeping the chest window clear of the
+extra rows is a separate, mod-agnostic concern — see
+`InventoryGui_Show_StorageWindowPosition` below.  
 **Gotcha:** Fully defensive (try/catch, null-checks) and uses a string-based `GetComponent`
 to find the backdrop without referencing `UnityEngine.UI`. If the panel hierarchy differs it
 degrades to "rows extend slightly past the frame" rather than throwing.  
-**Incompatible mods:** returns immediately (no panel/backdrop/chest changes at all) when
+**Incompatible mods:** returns immediately (no panel/backdrop changes at all) when
 ExtraSlots or AzuExtendedPlayerInventory is loaded, since those mods already grow the player
 grid — without this guard `extraRows` would be computed as large and positive even though
 Featherweight itself contributes nothing, stretching a large empty backdrop below the real
@@ -355,6 +383,52 @@ exist yet that frame.
 **Gotcha:** the magic constants (`300`, `75`, `35`, `590`) are copied from CQS's own
 `InventoryGridPatch.UpdatePlayerGrid` — if a future CQS version changes its sizing formula,
 this patch needs to be updated to match.
+
+### `InventoryGui_Show_StorageWindowPosition` (`Patches/StorageWindowPositionPatch.cs`)
+
+**Target:** `InventoryGui.Show` postfix  
+**What it does:** Delegates to `Util/StorageWindowPosition.Apply`, which places the chest /
+storage window (`m_container`) at its configured offset and attaches the `StorageWindowDragger`
+component. Try/catch-wrapped; a failure leaves the window at its vanilla spot.
+
+**Placement.** Two config values under section `UI` (deliberately **not** `IsAdminOnly`, so
+they stay client-side and aren't overwritten by server sync):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `StorageUiOffsetColumns` | `0` | Horizontal offset from the vanilla spot, in inventory cell widths (+ = right) |
+| `StorageUiOffsetRows` | `2` | Vertical offset from the vanilla spot, in inventory row heights (+ = down) |
+
+Offsets are measured in **cells** (`m_playerGrid.m_elementSpace`), not pixels, so the same
+setting looks identical at any UI scale or resolution. The default `2` drops the chest two rows
+clear of the player inventory, matching the default `FallerValkyrieExtraRows` of 2 so the
+Featherweight rows aren't hidden behind it. Both values are re-read on every `Show` and via
+`SettingChanged`, so config-manager edits apply live.
+
+**Dragging.** `StorageWindowDragger` (a `MonoBehaviour` on `m_container` implementing
+`IBeginDragHandler` / `IDragHandler` / `IEndDragHandler`) lets the player grab the window
+anywhere — backdrop, header, weight readout — and drop it anywhere on screen. On release the
+final position is converted back to cell offsets and written to config, so it persists.
+Pointer→panel math goes through `RectTransformUtility.ScreenPointToLocalPointInRectangle` on the
+parent rect, which is correct under any canvas scale. A `Clamp` keeps at least 80 units of the
+window inside the canvas, so a stray drag (or a wild config value) can't park it off-screen.
+
+**Gotcha — slot drags.** Unity routes drag events to the nearest **ancestor** that handles them,
+so a drag starting on an item slot would bubble up and move the window. `StartedOnSlots` checks
+`pointerPressRaycast.gameObject.transform.IsChildOf(gui.ContainerGrid.transform)` and bails, so
+slots keep their normal item behaviour.
+
+**No mod detection.** Nothing here inspects the plugin list. Vanilla never writes
+`m_container.anchoredPosition` (`UpdateContainer` only toggles active state), and mods that
+reposition the container do so on the container *grid root*, a **child** of `m_container` — so
+moving `m_container` carries the whole window (backdrop + header + grid) and preserves any other
+mod's grid-relative offset. One placement is correct with or without such a mod. This replaced
+the old ComfyQuickSlots-aware chest shift that used to live in
+`InventoryGui_Show_FeatherweightPanel`.
+
+**Caveat:** the offset is static, not derived from the live row count. If
+`FallerValkyrieExtraRows` is raised above 2, raise `StorageUiOffsetRows` to match (or just drag
+the window down).
 
 ### Ceremony / power VFX — no green
 
@@ -459,7 +533,7 @@ Grace, Howl of the Pack, Hive Sight, Valkyrie's Rally, and Rootward).
 **Target:** `SE_Rested.CalculateComfortLevel`  
 **What it does:** Adds bonus comfort when the Greydwarf Shaman Lord's blessing
 (`SE_GreydwarfLordSpirit`, "Forest's Embrace") is active and the player has been sitting
-near a mature tree for ≥60 s. Also backs `ForestEmbraceService.IsNearQualifyingTree` so
+near a mature tree for ≥30 s. Also backs `ForestEmbraceService.IsNearQualifyingTree` so
 standing near a tree counts as shelter immediately, independent of the sit-timer gate.
 Note: this patch predates the 0.6.3 rework and originally watched the Forsaken Power of
 the same name — the tree-rest effect now lives on the blessing instead (see

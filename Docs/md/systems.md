@@ -425,11 +425,30 @@ Drives the Fallen Valkyrie Lord blessing's two mechanics (both gated on
   dimensions, so: `Inventory_Load_FeatherweightExpand` pre-grows the player inventory before
   items load (preventing extra-row items being compacted/destroyed); the spawn re-apply calls
   `Reconcile()` to set the final height; `InventoryGui_Show_FeatherweightPanel` stretches the
-  window backdrop to wrap the rows **and pushes the chest panel (`m_container`) down** so the
-  extra rows aren't hidden behind it when a container is open. Switching away spills the extra
+  window backdrop to wrap the rows, and the chest panel is kept clear of them by the separate
+  [storage window placement](#storage-window-placement) offset. Switching away spills the extra
   rows into one or more `CargoCrate`s (`Collapse()` — multiple default crates, never an
   over-sized one, since a Container rebuilds from prefab size on reload). On death the tombstone
   copies the inventory size, so nothing is lost.
+
+#### The height is an invariant, not a one-shot write
+
+`Reconcile()` runs on spawn and on a blessing change. Nothing in vanilla re-applies our
+height afterwards, so any later rebuild of the inventory silently drops it back to 8×4 —
+and because **every** vanilla capacity check derives from `m_width * m_height`
+(`CanAddItem`, `HaveEmptySlot`, `GetEmptySlots`, and `FindEmptySlot` inside `AddItem`),
+the extra rows stop counting as capacity even while they still render. The visible
+symptom is auto-pickup and crafting reporting a full inventory with empty extra rows,
+while dragging an item in by hand still works — the explicit-position
+`AddItem(item, pos)` overload only checks `GetItemAt(x, y)` and never reads the height.
+
+`FeatherweightCapacityPatches` closes that gap by re-asserting the blessed height at each
+capacity entry point via `FeatherweightInventory.EnsureExpanded`, which **only ever raises**
+(lowering must go through `Reconcile`/`Collapse`, which crate the surplus first). See
+[patches.md](patches.md#featherweightcapacitypatches-patchesfeatherweightcapacitypatchcs).
+
+**When adding any new inventory-height logic, treat the height as something to re-assert on
+read, not to set once.**
 
 ### ComfyQuickSlots compatibility
 
@@ -471,17 +490,44 @@ CQS's *own* `"ExtInvGrid"` but with the true `num = height − VanillaHeight` (1
 Featherweight rows), so the single backdrop always covers exactly the rows actually present.
 No-op without CQS; fully try/catch-wrapped.
 
-**Chest-panel shift (both vanilla and CQS).** Whether or not CQS is loaded,
-`InventoryGui_Show_FeatherweightPanel` also shifts the whole chest window (`m_container`) **down**
-by `extraRows × m_elementSpace` plus a small fixed clearance (`ContainerClearancePx`, 22 px) so
-the extra rows — which the grid lays out *below* the base rows — aren't covered by the chest UI
-("the additional rows are underneath the chest UI"). This works in both cases because nothing
-else ever moves `m_container`: vanilla `UpdateContainer` only toggles its active state, and CQS
-only repositions the container *grid root* (a child of `m_container`) to a fixed config point
-`(40, −437)`. Since that grid root is a child, moving `m_container` carries the whole chest
-(backdrop + header + grid) down together while preserving CQS's relative offset. Computed from a
-cached base position; with the blessing off `delta == 0` (and no clearance) so the chest returns
-to exactly its base.
+**Chest-panel placement** is no longer part of this — it's handled mod-agnostically by
+[Storage window placement](#storage-window-placement) below, which needs no CQS awareness at all.
+
+### Storage window placement
+
+`Util/StorageWindowPosition.cs` + `Patches/StorageWindowPositionPatch.cs`
+
+The chest/storage window (`InventoryGui.m_container`) sits wherever the player puts it. Two
+inputs, both writing the same pair of client-side (**non**-admin, not server-sync'd) config
+values under section `UI`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `StorageUiOffsetColumns` | `0` | Horizontal offset from the vanilla spot, in inventory cell widths (+ = right) |
+| `StorageUiOffsetRows` | `2` | Vertical offset from the vanilla spot, in inventory row heights (+ = down) |
+
+- **Config** — offsets are measured in **cells** (`m_playerGrid.m_elementSpace`), not pixels, so
+  a given setting looks the same at any UI scale or resolution. Re-read on every
+  `InventoryGui.Show` and on `SettingChanged`, so config-manager edits apply live.
+- **Drag** — `StorageWindowDragger` (a `MonoBehaviour` on `m_container` using the
+  `UnityEngine.EventSystems` drag interfaces) lets the player grab the window anywhere except the
+  item slots and drop it anywhere on screen; on release the position is converted back to cell
+  offsets and saved. Drags starting on a slot are ignored (`StartedOnSlots`) so item handling is
+  untouched — without that check Unity's event bubbling would route slot drags to the window.
+  A clamp keeps ≥ 80 units of the window inside the canvas so it can't be lost off-screen.
+
+The default of `2` rows drops the chest clear of the default `FallerValkyrieExtraRows` of 2, so
+the Featherweight rows aren't hidden behind it. The offset is **static**, not derived from the
+live row count — raise `StorageUiOffsetRows` (or just drag the window) if `FallerValkyrieExtraRows`
+is set above 2.
+
+**Why no mod detection.** Nothing here inspects the plugin list. Vanilla never writes
+`m_container.anchoredPosition` (`UpdateContainer` only toggles its active state), and mods that
+reposition the container — ComfyQuickSlots among them — move the container *grid root*, a
+**child** of `m_container`. Moving `m_container` therefore carries the whole chest (backdrop +
+header + grid) and preserves any other mod's grid-relative offset, so one placement is correct
+with or without them. This replaced an earlier CQS-aware chest shift in
+`InventoryGui_Show_FeatherweightPanel`.
 
 ### Incompatible slot-expansion mods (ExtraSlots, AzuExtendedPlayerInventory)
 
@@ -501,12 +547,14 @@ trying to coexist it fully backs off: `IncompatibleSlotModLoaded` checks
 - `InventoryGui_Show_FeatherweightPanel` (`Patches/FeatherweightInventoryUiPatch.cs`) also
   no-ops, for the same reason as the height guards: with the grid already grown by the other
   mod, `extraRows = GetHeight() − BaseHeight` is large and positive even though Featherweight
-  contributes nothing, so without this guard the panel/backdrop/chest shift would stretch a
+  contributes nothing, so without this guard the panel/backdrop grow would stretch a
   large empty area below the real slots.
 
 Net effect: with either mod installed, Featherweight behaves as carry-cap-only — identical
-to how it'd behave with `FallerValkyrieExtraRows` set to 0 — and the other mod's own UI is
-left completely untouched.
+to how it'd behave with `FallerValkyrieExtraRows` set to 0 — and the other mod's own player-grid
+UI is left completely untouched. [Storage window placement](#storage-window-placement) is
+independent of all this and still applies: it's a player preference, not a Featherweight
+mechanic.
 
 ---
 

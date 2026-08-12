@@ -79,6 +79,7 @@ See [systems.md](systems.md) for implementation details.
 | `BlessingSystem` | Pedestal → player SE grant logic; persists active blessing in `m_customData` |
 | `PowerClaimSystem` | Lord kill → FP auto-grant |
 | `FeatherweightInventory` | Featherweight blessing: raised carry cap + extra inventory rows + CargoCrate spill on switch; base height is CQS-aware (see [systems.md](systems.md#comfyquickslots-compatibility)) |
+| `StorageWindowPosition` | Chest/storage window placement: config offset in inventory cells + `StorageWindowDragger` click-and-drag, no mod detection (see [systems.md](systems.md#storage-window-placement)) |
 
 ### Brain MonoBehaviours
 

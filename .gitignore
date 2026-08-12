@@ -3,3 +3,5 @@ obj/
 *.dll
 *.user
 *.suo
+# Thunderstore upload archives are build artifacts, not source
+*.zip
