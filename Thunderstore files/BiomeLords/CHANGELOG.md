@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.6
+
+Bug fix.
+
+- **Fixed Featherweight's extra rows not accepting picked-up items.** The two extra rows were visible and you could drag items into them by hand, but the game didn't count them as real space — so with your normal slots full you'd get "inventory full" and nothing would be auto-picked up, even with the extra rows completely empty. They now behave like any other inventory row: auto-pickup, manual pickup, crafting output and a container's "take all" all fill them.
+
 ## 0.6.5
 
 Quality-of-life and balance.
@@ -7,7 +13,6 @@ Quality-of-life and balance.
 - **The chest/storage window can now be dragged anywhere on screen.** Click and hold anywhere on an open storage window that isn't an item slot — the backdrop, the header, the weight readout — and drag it wherever you want. Item slots keep working exactly as before, so moving items around is unaffected. Where you drop it is remembered when you reopen the chest and after you log back in.
 - **New settings for the storage window position.** `UI.StorageUiOffsetColumns` and `UI.StorageUiOffsetRows` place the window numerically, measured in inventory cells so it looks the same at any UI scale. By default the window now sits two rows below the player inventory, clear of the Featherweight blessing's extra rows. These two settings are **local to each player** — a server never overwrites them, so everyone keeps their own layout.
 - **Removed the automatic ComfyQuickSlots detection for chest window placement.** The window used to be shifted automatically based on which inventory mods were installed. It's now positioned purely by your own setting or your own drag, which behaves the same way no matter what else you have loaded. ComfyQuickSlots remains fully compatible in every other respect.
-- **Fixed Featherweight's extra rows not accepting picked-up items.** The two extra rows were visible and you could drag items into them, but the game didn't count them as real space — so with your normal slots full you'd get "inventory full" and items wouldn't be auto-picked up, even with the extra rows completely empty. They now behave like any other inventory row: auto-pickup, manual pickup, crafting output and container "take all" all fill them.
 - **Forest's Embrace grants Rested faster.** The time you need to stay seated beside a mature tree dropped from **60 seconds to 30**. Everything else about the blessing is unchanged.
 
 ## 0.6.4

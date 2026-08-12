@@ -39,7 +39,7 @@ C:\Users\yesu0725\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Mod Test P
 
 Key lines to look for after a fresh launch:
 ```
-[Info   :BiomeLords] BiomeLords 0.6.5 loaded. 7 Lords registered.
+[Info   :BiomeLords] BiomeLords 0.6.6 loaded. 7 Lords registered.
 [Info   :BiomeLords] Harmony: N patch classes applied, M skipped.
 ```
 
