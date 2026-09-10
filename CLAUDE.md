@@ -1,6 +1,6 @@
 # BiomeLords — Project Overview
 
-**Version:** 0.6.4  
+**Version:** 0.6.12  
 **GUID:** `com.taeguk.BiomeLords`  
 **Framework:** BepInEx + Jotunn + HarmonyLib  
 **Valheim compatibility:** `EveryoneMustHaveMod`, `VersionStrictness.Minor`
@@ -47,9 +47,10 @@ BiomeLords/
 │   ├── IconAssignment.cs       SE icon candidates per blessing
 │   ├── SpriteTinter.cs         Material tint helper
 │   ├── FeatherweightInventory.cs  Featherweight: carry cap + extra rows + CargoCrate spill
+│   ├── StorageWindowPosition.cs   Chest/storage window placement + click-and-drag
 │   └── ConfigurationManagerAttributes.cs  Admin-only config attribute
 ├── Phase1B/                    Creatures, items, events, summons
-│   ├── CreatureFactory.cs      Builds all 7 Lord prefabs
+│   ├── CreatureFactory.cs      Builds all 7 Lord prefabs + NeckLordMinion
 │   ├── ItemFactory.cs          Lord's Horn + tooltip patches
 │   ├── EventFactory.cs         World event registration
 │   ├── SummonService.cs        Horn-use → summon logic
@@ -104,14 +105,23 @@ BiomeLords/
 
 ## Build & deploy
 
+> **Reference assemblies.** Valheim 1.0 ships no BepInEx inside the Steam install, so the
+> csproj takes `assembly_valheim` / UnityEngine from `$(ValheimPath)` but BepInEx, 0Harmony
+> and Jotunn from `$(GaleProfilePath)` — the Gale "TG Mods Only" profile. Point
+> `GaleProfilePath` at whichever profile holds the Jotunn version you build against.
+
 ```powershell
 # Build
 cd "E:\Valheim Modding\ValheimBiomeLords\Github\BiomeLords"
 dotnet build -c Release
 
-# Deploy (auto-copies on each build via post-build in .csproj, or run manually)
+# Deploy — automatic on every build via the CopyToPlugins target in .csproj:
+#   1. Gale client profile "TG Mods Only" (%APPDATA%\com.kesomannen.gale\valheim\profiles\TG Mods Only\BepInEx\plugins\TaegukGaming-BiomeLords)
+#   2. Gale client profile "HB Test"      (%APPDATA%\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords)
+#   3. Local dedicated server             (...\Valheim dedicated server\BepInEx\plugins\TaegukGaming-BiomeLords)
+# To copy by hand:
 $src  = "bin\Release\netstandard2.1\BiomeLords.dll"
-$dest = "C:\Users\yesu0725\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Mod Test Profile\BepInEx\plugins\BiomeLords\BiomeLords.dll"
+$dest = "C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\TG Mods Only\BepInEx\plugins\TaegukGaming-BiomeLords\BiomeLords.dll"
 Copy-Item $src $dest -Force
 
 # Regenerate PDF handbook

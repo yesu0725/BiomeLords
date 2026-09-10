@@ -47,7 +47,7 @@ Each factory's `RegisterAll()` is called once in `OnVanillaPrefabsAvailable`.
 
 | Factory | Output |
 |---|---|
-| `CreatureFactory` | Cloned + tinted Lord prefabs with brain MBs attached |
+| `CreatureFactory` | Cloned + tinted Lord prefabs with brain MBs attached, plus `NeckLordMinion` (a `Neck` clone with fire fear cleared and hunt-player baked in — **not** a Lord, deliberately kept out of `RegisteredLords`) |
 | `ItemFactory` | Lord's Horn item (cloned from `TankardAnniversary`, retinted, stripped of wielding) + tooltip patches |
 | `EventFactory` | World events (weather + music per biome) |
 | `TrophyFactory` | 7 Lord trophy items |
@@ -79,6 +79,7 @@ See [systems.md](systems.md) for implementation details.
 | `BlessingSystem` | Pedestal → player SE grant logic; persists active blessing in `m_customData` |
 | `PowerClaimSystem` | Lord kill → FP auto-grant |
 | `FeatherweightInventory` | Featherweight blessing: raised carry cap + extra inventory rows + CargoCrate spill on switch; base height is CQS-aware (see [systems.md](systems.md#comfyquickslots-compatibility)) |
+| `StorageWindowPosition` | Chest/storage window placement: config offset in inventory cells + `StorageWindowDragger` click-and-drag, no mod detection (see [systems.md](systems.md#storage-window-placement)) |
 
 ### Brain MonoBehaviours
 
@@ -120,7 +121,8 @@ Game loads vanilla prefabs
        ├─ SubEffectFactory.RegisterAll()      ← sub-SEs registered
        ├─ TrophyFactory.RegisterAll()         ← trophy items registered
        ├─ CreatureFactory.RegisterAll()       ← Lord prefabs + brains registered
-       │    └─ RegisteredLords.Register()     ← runtime name/event/id mappings populated
+       │    ├─ RegisteredLords.Register()     ← runtime name/event/id mappings populated
+       │    └─ BuildNeckLordMinion()          ← NeckLordMinion registered, NOT a Lord
        ├─ ItemFactory.RegisterAll()           ← Lord's Horn registered
        ├─ PedestalFactory.RegisterAll()       ← Pedestal piece registered
        ├─ DebugCommands.RegisterAll()         ← biomelords_intrinsic command registered

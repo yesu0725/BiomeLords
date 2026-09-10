@@ -21,9 +21,33 @@ namespace BiomeLords.Phase1B
         public const string SeekerLordPrefab            = "SeekerLord";
         public const string FallerValkyrieLordPrefab    = "FallerValkyrieLord";
 
+        /// <summary>Not a Lord — the Neck the Neck Lord's Tide Caller summons.
+        /// Kept out of <see cref="RegisteredLords"/>. See BuildNeckLordMinion.</summary>
+        public const string NeckLordMinionPrefab        = "NeckLordMinion";
+
+        /// <summary>Strip a Lord's (or its minions') inherited fear of fire.
+        ///
+        /// `m_afraidOfFire` is BaseAI's "superAfraid" path — flee the Fire EffectArea and
+        /// forget the current target. `m_avoidFire` is the milder "circle around it".
+        /// MonsterAI.UpdateAI tests them as `m_afraidOfFire || m_avoidFire`, and BaseAI's
+        /// path validation rejects points inside a Fire area on the same OR, so both have
+        /// to go or the behaviour survives.
+        ///
+        /// Called on the NeckLord prefab at registration, and per instance on each Neck
+        /// the Lord summons (see <see cref="NeckLordBrain"/>) — the summons are plain
+        /// vanilla `Neck` instances, and the shared prefab must never be edited or every
+        /// Neck in the world would lose its fire fear.</summary>
+        internal static void ClearFireFear(MonsterAI ai)
+        {
+            if (ai == null) return;
+            ai.m_afraidOfFire = false;
+            ai.m_avoidFire    = false;
+        }
+
         public static void RegisterAll()
         {
             BuildNeckLord();
+            BuildNeckLordMinion();
             BuildGreydwarfShamanLord();
             BuildDraugrEliteLord();
             BuildFenringLord();
@@ -70,11 +94,16 @@ namespace BiomeLords.Phase1B
                 character.m_boss = true;            // shows boss bar
             }
 
+            // Vanilla Neck runs from fire; a Lord doesn't. BaseAI has TWO fire flags and
+            // MonsterAI.UpdateAI gates on `m_afraidOfFire || m_avoidFire`, so clearing one
+            // alone changes nothing — which is why the Lord still fled torches with only
+            // m_avoidFire cleared. m_afraidOfFire is the stronger of the two: it makes the
+            // AI flee outright AND drop m_targetCreature/m_targetStatic, so a torch was
+            // enough to break off the fight. Both also make BaseAI reject any path point
+            // inside a Fire EffectArea, which would keep the Lord out of a lit base.
             var monsterAI = clone.GetComponent<MonsterAI>();
             if (monsterAI != null)
-            {
-                monsterAI.m_avoidFire = false;      // vanilla Neck flees fire; the Lord doesn't
-            }
+                ClearFireFear(monsterAI);
 
             // Drops: copper + the Lord's trophy. Both are added at spawn so we
             // can adjust if the trophy prefab isn't yet registered at this point.
@@ -112,6 +141,53 @@ namespace BiomeLords.Phase1B
             RegisteredLords.Register(NeckLordPrefab, Phase1B.EventFactory.NeckLordEvent, "neck_lord");
 
             Jotunn.Logger.LogInfo($"[BiomeLords] Registered creature: {NeckLordPrefab}");
+        }
+
+        /// <summary>
+        /// The Neck the Neck Lord's Tide Caller summons — a plain `Neck` in every visible
+        /// respect (same model, health, drops and `$enemy_neck` display name), differing
+        /// only in the two AI traits the Lord's minions are meant to have.
+        ///
+        /// This exists as a registered prefab rather than a per-instance tweak on spawned
+        /// vanilla Necks because per-instance AI field writes are LOCAL: only the owner's
+        /// copy has them, so a summon whose ownership moved to another client mid-fight
+        /// reverted to vanilla behaviour. Baked into a prefab, every client builds its
+        /// instance with these values, and they survive ownership transfer, zone reload
+        /// and a save/quit.
+        ///
+        ///   • Fire fear cleared, same as the Lord (see <see cref="ClearFireFear"/>).
+        ///   • `m_enableHuntPlayer` — MonsterAI.Awake turns this into `SetHuntPlayer(true)`,
+        ///     which BaseAI.Awake then reads back out of the ZDO (`s_huntPlayer`) on every
+        ///     other client. So the summons hunt from the moment they exist, everywhere,
+        ///     without NeckLordBrain having to say so.
+        ///
+        /// Deliberately NOT registered with <see cref="RegisteredLords"/> — it is a minion,
+        /// not a Lord, and must not appear in Lord kill tracking or event handling.
+        /// </summary>
+        private static void BuildNeckLordMinion()
+        {
+            var clone = PrefabManager.Instance.CreateClonedPrefab(NeckLordMinionPrefab, "Neck");
+            if (clone == null)
+            {
+                // Not fatal: NeckLordBrain falls back to spawning vanilla Necks and
+                // configuring them per instance, which is what it did before 0.6.10.
+                Jotunn.Logger.LogWarning(
+                    "[BiomeLords] Failed to clone Neck prefab for the Neck Lord's minions — " +
+                    "the Lord will summon ordinary Necks instead.");
+                return;
+            }
+
+            var monsterAI = clone.GetComponent<MonsterAI>();
+            if (monsterAI != null)
+            {
+                ClearFireFear(monsterAI);
+                monsterAI.m_enableHuntPlayer = true;
+            }
+
+            var custom = new CustomCreature(clone, fixReference: true);
+            CreatureManager.Instance.AddCreature(custom);
+
+            Jotunn.Logger.LogInfo($"[BiomeLords] Registered creature: {NeckLordMinionPrefab}");
         }
 
         private static void BuildGreydwarfShamanLord()

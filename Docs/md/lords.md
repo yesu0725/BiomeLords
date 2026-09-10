@@ -15,14 +15,48 @@ All seven Lords follow the same pattern: cloned vanilla prefab → scaled up →
 | **Base HP** | 500 |
 | **Damage profile** | 6 slash (vanilla Neck bite ×1.2) |
 | **Brain file** | `Phase1B/NeckLordBrain.cs` |
+| **AI overrides** | `m_afraidOfFire` and `m_avoidFire` both cleared (`CreatureFactory.ClearFireFear`) |
 
 ### Abilities
 
 **Tide Caller** — every 45 s spawns up to 2 regular Necks (cap 3 nearby within 20 m). 15 s grace period on spawn.
 
+Summons are `NeckLordMinion`, a registered clone of `Neck` built by `CreatureFactory.BuildNeckLordMinion`. Identical to a Neck in every visible respect — same model, health, drops and `$enemy_neck` display name — differing only in two baked AI traits:
+
+| Baked on the prefab | Effect |
+|---|---|
+| `ClearFireFear` | Both fire flags off, same as the Lord. |
+| `m_enableHuntPlayer = true` | `MonsterAI.Awake` turns this into `SetHuntPlayer(true)`, which `BaseAI.Awake` reads back from the ZDO (`s_huntPlayer`) on every other client. `FindEnemy` then falls back to `Player.GetClosestPlayer(pos, 200f)` with no line of sight required. |
+
+**Why a prefab and not per-instance setup.** Writing those fields on a spawned vanilla `Neck` only affects the owner's copy, so a summon whose ownership passed to another client mid-fight silently reverted to vanilla fire fear (the 0.6.9 behaviour). Baked into a registered prefab, every client constructs its instance with these values, and they survive ownership transfer, zone reload and a relog.
+
+Deliberately **not** in `RegisteredLords`, so `IsLord` is false for it — no Forsaken Power on kill, no event end, no kill-counter reset, no stagger immunity, no Lord damage boost. Lord identification is exact-name throughout (`RegisteredLords.StripClone` + `HashSet`), so the shared `Neck`/`Lord` substrings are harmless.
+
+`NeckLordBrain.ConfigureMinion` still runs per instance for the part no prefab field can express — `SetAlerted(true)` and `SetTarget(...)`, giving alert animation, run speed and a target on frame one instead of after the next target-update tick (`m_updateTargetTimer`, randomised 0-2 s). Both are non-public in vanilla (`BaseAI.SetAlerted` protected virtual, `MonsterAI.SetTarget` private) so they go through `AccessTools`; if a Valheim update renames either, the prefab's hunt flag still carries the behaviour and only the instant-on is lost. The target is the Lord's own `GetTargetCreature()` where it has one, so summons join the fight in progress rather than each picking their own player.
+
+`ConfigureMinion` also re-asserts the two baked traits. That is a no-op on a `NeckLordMinion` and the real work on the fallback path: if the clone ever fails to register, `EnsurePrefabs` drops back to vanilla `Neck` and the brain configures it per instance as before.
+
+**Multiplayer note:** adding a creature means a client on an older BiomeLords cannot see the summons at all. `VersionStrictness.Minor` lets 0.6.x clients connect to each other, so a server and its players should update together.
+
 **Water Blob** — at 5–18 m range and within a 60° forward arc, lobs a water projectile every 12 s. Pauses 1 s to telegraph the throw. In Frenzy, fires a triple-spread (left/centre/right).
 
 **Block Phase** (≤50% HP) — when the player is within 6 m and actively attacking, the Lord raises a block for 2.5 s (12 s inter-cooldown). Indicated by a `fx_guardstone_activate` VFX pulse.
+
+**No fear of fire** — vanilla `Neck` ships with **both** `m_avoidFire: 1` and `m_afraidOfFire: 1` (see `Assets/GameObject/Neck.prefab`). `MonsterAI.UpdateAI` tests them as `m_afraidOfFire || m_avoidFire`, and `BaseAI`'s path validation rejects points inside a Fire `EffectArea` on the same OR — so clearing only one leaves the behaviour fully intact. `m_afraidOfFire` is the "superAfraid" branch: it flees the fire AND nulls `m_targetCreature`/`m_targetStatic`, so a single torch broke off the fight. Both are cleared on the clone. Fire *damage* is untouched.
+
+**Neck is the only Lord base creature affected.** Read out of the game's own bundle (`valheim_Data/StreamingAssets/SoftRef/Bundles/c4210710`, which holds all seven source prefabs) with UnityPy — the parse reproduces Neck's `1 / 1` exactly as the ripped `Assets/GameObject/Neck.prefab` records it, so the rest of the read is trustworthy:
+
+| Base creature | `m_afraidOfFire` | `m_avoidFire` |
+|---|---|---|
+| `Neck` | **1** | **1** |
+| `Greydwarf_Shaman` | 0 | 0 |
+| `Draugr_Elite` | 0 | 0 |
+| `Fenring` | 0 | 0 |
+| `Lox` | 0 | 0 |
+| `Seeker` | 0 | 0 |
+| `FallenValkyrie` | 0 | 0 |
+
+Across all 101 MonsterAI components in that bundle only 15 set either flag, and they are almost all prey animals (`Deer`, `Boar`, `Chicken`, `Hare`). Plain `Greydwarf` sets `m_avoidFire` only — it circles fire rather than panicking — but `Greydwarf_Shaman` sets neither. So `ClearFireFear` is deliberately called from `BuildNeckLord` alone; adding it to the other six would be a no-op.
 
 **Frenzy** (≤30% HP) — speed ×1.5, tint shifts to bright saturated red, continuous red-lightning spark aura every 0.4 s. Water Blob fires a triple-spread instead of a single shot.
 
@@ -84,7 +118,7 @@ Marker SE (`SE_GreydwarfLordSpirit`). Combines two effects while the blessing is
 - Sitting beside a tree with no monsters within 30 m heals the player every 3 s — the older
   the tree, the stronger the gift (1 HP near Beech/Birch up to 5–6 HP near Yggdrasil/Charred
   trees).
-- After 60 s of seated rest near a tree, `ForestEmbraceComfortPatch` elevates comfort so
+- After 30 s of seated rest near a tree, `ForestEmbraceComfortPatch` elevates comfort so
   vanilla grants a longer Rested buff (Beech/Birch +1, Oak +2, Yggdrasil/Charred +3).
 
 ### Forsaken Power — Rootward (`GP_Rootward`)

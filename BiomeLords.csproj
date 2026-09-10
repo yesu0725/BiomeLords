@@ -6,6 +6,10 @@
     <RootNamespace>BiomeLords</RootNamespace>
     <Version>0.1.0</Version>
     <ValheimPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim</ValheimPath>
+    <!-- Valheim 1.0 ships no BepInEx inside the Steam install (Gale keeps its own
+         copy per profile), so BepInEx / Harmony / Jotunn are referenced from the
+         Gale test profile rather than from $(ValheimPath). -->
+    <GaleProfilePath>C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\TG Mods Only</GaleProfilePath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,6 +37,16 @@
       <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Canvas / RectTransformUtility (storage-window drag math). -->
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- UnityEngine.EventSystems drag handlers (storage-window drag). -->
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ValheimPath)\valheim_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="assembly_valheim">
       <HintPath>$(ValheimPath)\valheim_Data\Managed\assembly_valheim.dll</HintPath>
       <Private>false</Private>
@@ -46,37 +60,34 @@
       <Private>false</Private>
     </Reference>
     <Reference Include="BepInEx">
-      <HintPath>$(ValheimPath)\BepInEx\core\BepInEx.dll</HintPath>
+      <HintPath>$(GaleProfilePath)\BepInEx\core\BepInEx.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="0Harmony">
-      <HintPath>$(ValheimPath)\BepInEx\core\0Harmony.dll</HintPath>
+      <HintPath>$(GaleProfilePath)\BepInEx\core\0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Jotunn">
-      <HintPath>$(ValheimPath)\BepInEx\plugins\ValheimModding-Jotunn\Jotunn.dll</HintPath>
+      <HintPath>$(GaleProfilePath)\BepInEx\plugins\ValheimModding-Jotunn\Jotunn.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
 
   <PropertyGroup>
-    <R2ModManPluginPath>C:\Users\yesu0725\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Mod Test Profile\BepInEx\plugins\BiomeLords</R2ModManPluginPath>
-    <HearthboundPluginPath>C:\Users\yesu0725\AppData\Roaming\r2modmanPlus-local\Valheim\profiles\Hearthbound Valheim - Test\BepInEx\plugins\TaegukGaming-BiomeLords</HearthboundPluginPath>
+    <!-- Client-side testing profiles (Gale). Replaced the old r2modman profiles. -->
+    <GaleTestPluginPath>$(GaleProfilePath)\BepInEx\plugins\TaegukGaming-BiomeLords</GaleTestPluginPath>
+    <GalePluginPath>C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords</GalePluginPath>
     <DedicatedServerPluginPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server\BepInEx\plugins\TaegukGaming-BiomeLords</DedicatedServerPluginPath>
   </PropertyGroup>
 
   <Target Name="CopyToPlugins" AfterTargets="Build">
-    <MakeDir Directories="$(ValheimPath)\BepInEx\plugins\BiomeLords" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ValheimPath)\BepInEx\plugins\BiomeLords" />
-    <Message Text="Copied $(TargetFileName) to BepInEx\plugins\BiomeLords" Importance="high" />
+    <MakeDir Directories="$(GaleTestPluginPath)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GaleTestPluginPath)" />
+    <Message Text="Copied $(TargetFileName) to Gale TG Mods Only profile" Importance="high" />
 
-    <MakeDir Directories="$(R2ModManPluginPath)" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(R2ModManPluginPath)" />
-    <Message Text="Copied $(TargetFileName) to r2modman Mod Test Profile" Importance="high" />
-
-    <MakeDir Directories="$(HearthboundPluginPath)" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(HearthboundPluginPath)" />
-    <Message Text="Copied $(TargetFileName) to r2modman Hearthbound Valheim - Test profile" Importance="high" />
+    <MakeDir Directories="$(GalePluginPath)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GalePluginPath)" />
+    <Message Text="Copied $(TargetFileName) to Gale HB Test profile" Importance="high" />
 
     <MakeDir Directories="$(DedicatedServerPluginPath)" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(DedicatedServerPluginPath)" />

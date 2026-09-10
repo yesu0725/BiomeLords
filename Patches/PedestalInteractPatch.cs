@@ -34,7 +34,7 @@ namespace BiomeLords.Patches
             if (!__instance.HaveAttachment()) return true;
             if (player == null) return true;
 
-            __result = BlessingSystem.TryGrant(player, __instance, __instance.GetAttachedItem());
+            __result = BlessingSystem.TryGrant(player, __instance, BlessingSystem.ResolveAttachedName(__instance));
             return false;
         }
     }
@@ -95,7 +95,7 @@ namespace BiomeLords.Patches
             // covers the ceremony so we don't fire it from both.
             if (!__result || __instance == null) return;
             if (__instance.GetComponent<LordsPedestalTag>() == null) return;
-            var attached = __instance.GetAttachedItem();
+            var attached = BlessingSystem.ResolveAttachedName(__instance);
             if (!BlessingSystem.TryResolve(attached, out _, out _)) return;
             BlessingSystem.ResetCharges(__instance);
         }
@@ -136,13 +136,18 @@ namespace BiomeLords.Patches
     /// triggers SetVisualItem with the existing trophy name → flag already
     /// matches → no ceremony.
     /// </summary>
-    [HarmonyPatch(typeof(ItemStand), "SetVisualItem")]
+    [HarmonyPatch(typeof(ItemStand), "SetVisualItem",
+                  new[] { typeof(int), typeof(int), typeof(int), typeof(int) })]
     public static class ItemStand_SetVisualItem_MountHook
     {
         private const string CeremonyZDOKey = "biomelords.ceremony_for";
 
+        // Valheim 1.0 reshaped this to SetVisualItem(int itemHash, int variant,
+        // int quality, int orientation) — it used to take the prefab name as a
+        // string. Resolve the hash back to a name so the ZDO ceremony flag keeps
+        // storing (and matching) the same values it did before the update.
         [HarmonyPostfix]
-        public static void Postfix(ItemStand __instance, string itemName)
+        public static void Postfix(ItemStand __instance, int itemHash)
         {
             if (__instance == null) return;
             if (__instance.GetComponent<LordsPedestalTag>() == null) return;
@@ -150,6 +155,8 @@ namespace BiomeLords.Patches
             var nv = __instance.GetComponent<ZNetView>();
             if (nv == null || !nv.IsValid()) return;
             var zdo = nv.GetZDO();
+
+            var itemName = BlessingSystem.ResolveAttachedName(itemHash);
 
             if (string.IsNullOrEmpty(itemName))
             {
@@ -180,7 +187,7 @@ namespace BiomeLords.Patches
             if (__instance.GetComponent<LordsPedestalTag>() == null) return;
             if (!__instance.HaveAttachment()) return;
 
-            var attached = __instance.GetAttachedItem();
+            var attached = BlessingSystem.ResolveAttachedName(__instance);
             if (!BlessingSystem.TryResolve(attached, out _, out _)) return;
 
             int charges = BlessingSystem.GetCharges(__instance);

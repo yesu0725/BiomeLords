@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using BiomeLords.Util;
 
@@ -15,9 +17,22 @@ namespace BiomeLords.Patches
     /// BEFORE the items are read. BlessingPersistencePatch (Player.OnSpawned) then
     /// reconciles the height down to the correct value for the player's blessing.
     /// </summary>
-    [HarmonyPatch(typeof(Inventory), nameof(Inventory.Load))]
+    [HarmonyPatch]
     public static class Inventory_Load_FeatherweightExpand
     {
+        /// <summary>
+        /// Valheim 1.0 added a second Load overload — Load(ZPackage, bool) alongside
+        /// Load(ZPackage) — which made a name-only patch target ambiguous. Both have
+        /// the same body, so hook every Load overload rather than betting on which
+        /// one a given save path (or another mod) routes through.
+        /// </summary>
+        public static IEnumerable<MethodBase> TargetMethods()
+        {
+            foreach (var m in AccessTools.GetDeclaredMethods(typeof(Inventory)))
+                if (m.Name == nameof(Inventory.Load))
+                    yield return m;
+        }
+
         [HarmonyPrefix]
         public static void Prefix(Inventory __instance)
         {

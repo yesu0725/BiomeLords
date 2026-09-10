@@ -70,6 +70,25 @@ namespace BiomeLords.Phase1C
             return false;
         }
 
+        /// <summary>
+        /// Valheim 1.0 changed ItemStand to hold the attached item as a stable
+        /// hash rather than a prefab name (GetAttachedItem now returns int, and
+        /// SetVisualItem takes an itemHash). Everything below is keyed on the
+        /// prefab name, so resolve the hash back through ObjectDB.
+        /// </summary>
+        public static string ResolveAttachedName(int itemHash)
+        {
+            if (itemHash == 0) return null;
+            var db = ObjectDB.instance;
+            if (db == null) return null;
+            var prefab = db.GetItemPrefab(itemHash);
+            return prefab != null ? prefab.name : null;
+        }
+
+        /// <summary>Prefab name of whatever is mounted on <paramref name="stand"/>, or null.</summary>
+        public static string ResolveAttachedName(ItemStand stand)
+            => stand == null ? null : ResolveAttachedName(stand.GetAttachedItem());
+
         private static ZDO Zdo(ItemStand stand)
         {
             if (stand == null) return null;

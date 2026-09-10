@@ -153,6 +153,99 @@ namespace BiomeLords.Util
                 HeightRef(inv) = LoadCeiling;
         }
 
+        /// <summary>
+        /// Raise the local player's inventory to its blessed height if it has drifted
+        /// below it. Called from the capacity-check patches so the extra rows are real
+        /// capacity, not just visible slots.
+        ///
+        /// Vanilla decides "is there room?" purely from `m_width * m_height`
+        /// (Inventory.CanAddItem / HaveEmptySlot / GetEmptySlots, and FindEmptySlot
+        /// inside AddItem). Placing an item at an explicit grid position instead only
+        /// checks GetItemAt(x, y) — which is why dragging into the extra rows always
+        /// worked even when the height had reverted, while auto-pickup reported a full
+        /// inventory. Reconcile() alone can't hold the invariant: it runs on spawn and
+        /// on a blessing change, so anything that rebuilds the inventory afterwards
+        /// leaves the height stale until the next spawn.
+        ///
+        /// Deliberately one-directional — it only ever RAISES, never lowers. Lowering
+        /// is Reconcile/Collapse's job because that path has to crate the items left
+        /// beyond the new height first; a lowering call from here could silently strand
+        /// or destroy them.
+        /// </summary>
+        public static void EnsureExpanded(Inventory inv)
+        {
+            if (inv == null || IncompatibleSlotModLoaded) return;
+
+            int target = ExpandedHeight;
+            // Cheap path first: already tall enough (the overwhelmingly common case, and
+            // these patches sit on per-frame auto-pickup checks). Skips the owner and
+            // status-effect lookups entirely.
+            if (HeightRef(inv) >= target) return;
+
+            var p = Player.m_localPlayer;
+            if (p == null || p.GetInventory() != inv) return;
+            if (!HasBlessing(p)) return;
+
+            if (LordConfig.DebugLogging.Value)
+                Jotunn.Logger.LogInfo(
+                    $"[BiomeLords] Featherweight: inventory height had drifted to {HeightRef(inv)}, " +
+                    $"restoring to {target} so the extra rows count as real capacity.");
+
+            HeightRef(inv) = target;
+        }
+
+        /// <summary>
+        /// Find a free slot in the Featherweight rows only — the grid rows at or below
+        /// <see cref="BaseHeight"/> are deliberately NOT searched.
+        ///
+        /// This is the fallback for slot-finders that cap their own search at a fixed
+        /// row count and so never see our rows. Vanilla's `Inventory.FindEmptySlot`
+        /// walks the real `m_height` and needs no help, but ComfyQuickSlots REPLACES
+        /// it (prefix returning false) with `QuickSlotsManager.GetEmptyInventorySlot`,
+        /// which hardcodes `for (y = 0; y &lt; 5; y++)`. With CQS installed the extra
+        /// rows therefore rendered and accepted hand-dragged items, while auto-pickup,
+        /// `Humanoid.Pickup` and craft output all failed with "inventory full" the
+        /// moment rows 0-4 were full — CQS's own CanAddItem counts `m_width*m_height`
+        /// and reported room that its slot-finder then refused to hand out.
+        ///
+        /// Returns (-1, -1) when there is no free extra-row slot (including whenever
+        /// the blessing is inactive, since the height is then just BaseHeight and the
+        /// scan range is empty). Never returns a slot in the base rows, so it can't
+        /// hand back a row another mod has reserved — CQS's armor/quickslot row is at
+        /// y = 4, below our BaseHeight of 5 under CQS.
+        /// </summary>
+        public static Vector2i FindExtraRowSlot(Inventory inv, bool topFirst)
+        {
+            var none = new Vector2i(-1, -1);
+            if (inv == null || IncompatibleSlotModLoaded) return none;
+
+            var p = Player.m_localPlayer;
+            if (p == null || p.GetInventory() != inv) return none;
+
+            // The height can be stale here: CQS's prefixes skip ours on the capacity
+            // checks that would normally have re-asserted it.
+            EnsureExpanded(inv);
+
+            int height = inv.GetHeight();
+            int width  = inv.GetWidth();
+            int first  = BaseHeight;
+            if (height <= first) return none;
+
+            if (topFirst)
+            {
+                for (int y = first; y < height; y++)
+                    for (int x = 0; x < width; x++)
+                        if (inv.GetItemAt(x, y) == null) return new Vector2i(x, y);
+            }
+            else
+            {
+                for (int y = height - 1; y >= first; y--)
+                    for (int x = 0; x < width; x++)
+                        if (inv.GetItemAt(x, y) == null) return new Vector2i(x, y);
+            }
+            return none;
+        }
+
         /// <summary>Set the inventory to its correct height for the player's current
         /// blessing state: expanded while Featherweight is active, base otherwise.
         /// Any items beyond the target height are crated.</summary>

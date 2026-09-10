@@ -46,7 +46,7 @@ unintended multiplicative power spikes.
 
 ### 3. Server-authoritative config
 
-**Rule:** All config entries must use:
+**Rule:** All config entries that affect **gameplay** must use:
 ```csharp
 new ConfigDescription(description, null, new ConfigurationManagerAttributes { IsAdminOnly = true })
 ```
@@ -55,7 +55,20 @@ This makes Jotunn push server values to all clients.
 Clients cannot override locally — this prevents desync on shared servers.
 
 **Applies to:** Kill requirements, HP/damage multipliers, blessing effect magnitudes,
-pedestal charge counts, hall recipe.
+pedestal charge counts, hall + horn recipes.
+
+**Exception — purely local UI preferences.** An entry that changes nothing another player
+or the server can observe, and that the player sets through the game's own UI, must be
+bound *without* `IsAdminOnly`. Marking it admin-only would let server sync overwrite a
+setting the player just changed by hand.
+
+Currently the only such entries are the `UI` section's `StorageUiOffsetColumns` /
+`StorageUiOffsetRows` (chest window placement, rewritten whenever the player drags the
+window — see [systems.md § Storage window placement](systems.md#storage-window-placement)).
+
+Before adding a new non-admin entry, check it against both halves of the test: **no
+gameplay effect**, and **the player can already change it in-game**. If either fails, it's
+admin-only.
 
 ### 4. Per-Lord balance isolation
 

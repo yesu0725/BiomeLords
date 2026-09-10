@@ -19,7 +19,7 @@ namespace BiomeLords.Phase1D
         private const float TickSeconds         = 3f;
         private const float TreeRadius          = 3f;    // close range — "right beside the tree"
         private const float MonsterCheckRadius  = 30f;   // comfort only with no hostiles in range
-        private const float SitSecondsRequired  = 60f;   // crouch this long to earn Rested
+        private const float SitSecondsRequired  = 30f;   // crouch this long to earn Rested
 
         private static float _nextTick;
         private static int   _blessingHash;
@@ -32,7 +32,7 @@ namespace BiomeLords.Phase1D
         /// <summary>True while the player is within range of any qualifying tree
         /// AND has the Forest's Embrace FP active. Used by the shelter override
         /// patch — shelter applies the moment you approach a tree, independent
-        /// of the sit-for-60s comfort gate.</summary>
+        /// of the seated comfort gate.</summary>
         public static bool IsNearQualifyingTree { get; private set; }
 
         private static readonly (string prefix, int heal, int comfort)[] TreeTable =

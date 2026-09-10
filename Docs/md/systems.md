@@ -240,6 +240,51 @@ LordIdByPrefab    : Dictionary<string, string>  — prefab name → BiomeLordDef
 
 `IsLord(Character)` and `LordIdFor(Character)` strip `(Clone)` from `gameObject.name` before lookup.
 
+Lookup is **exact-name set membership**, never a prefix or substring test. That is what makes
+`NeckLordMinion` safe: its name shares the `Neck` prefix with `NeckLord` and contains `Lord`,
+but it is deliberately not registered, so `IsLord` is false and it earns no Forsaken Power on
+kill, no event end, no kill-counter reset, no stagger immunity and no Lord damage boost. The
+only prefix test anywhere near it is `NeckLordBrain.CountNearbyMinions`, where matching
+`StartsWith("Neck")` is exactly the intent.
+
+**Keep Lord identification exact-name.** A `Contains("Lord")` shortcut anywhere in the codebase
+would immediately misclassify the minion as a boss.
+
+---
+
+## Summoned minions and network ownership
+
+Several brains summon adds (`NeckLordBrain` → Necks, `DraugrLordBrain` → Draugr,
+`GreydwarfLordBrain` → Greydwarf, `FenringLordBrain` → Bats). When a summon needs behaviour
+the vanilla creature doesn't have, **where you put that behaviour decides whether it survives.**
+
+| Approach | Lives where | Survives ownership transfer? |
+|---|---|---|
+| Set AI fields on the spawned instance | Owner's copy only | **No** |
+| `SetHuntPlayer(true)` and other ZDO-backed setters | ZDO, replicated | Yes |
+| Baked into a registered prefab clone | Every client, rebuilt on construction | Yes |
+
+AI settings are plain `MonoBehaviour` fields: writing them after `Instantiate` affects only
+the machine that spawned the creature. Ownership moves routinely as players walk around, and
+the new owner runs the AI from *its* copy — built from the untouched vanilla prefab. This is
+exactly how 0.6.9's fire-immune summons silently reverted mid-fight in multiplayer, and 0.6.10
+fixed it by registering `NeckLordMinion` (see
+[lords.md → Neck Lord](lords.md#neck-lord)).
+
+The prefab route also gets `m_enableHuntPlayer` for free: `MonsterAI.Awake` converts it into
+`SetHuntPlayer(true)`, which `BaseAI.Awake` then reads back out of the ZDO (`s_huntPlayer`) on
+every other client.
+
+What genuinely cannot be baked into a prefab is per-spawn state — `SetAlerted(true)` and
+`SetTarget(...)`, which give a summon an alert stance and a target on frame one rather than
+after `m_updateTargetTimer` (randomised 0-2 s). Both are non-public (`BaseAI.SetAlerted` is
+`protected virtual`, `MonsterAI.SetTarget` is `private`) and go through `AccessTools`, cached
+in static fields and null-checked, so a Valheim rename costs only the instant-on.
+
+**Rule of thumb: durable traits go on a prefab clone; only per-spawn state belongs in the
+brain.** And never edit a shared vanilla prefab to achieve it — clearing fire fear on `Neck`
+itself would have disarmed every Neck in the world.
+
 ---
 
 ## KillStore (`Util/KillStore.cs`)
@@ -425,11 +470,74 @@ Drives the Fallen Valkyrie Lord blessing's two mechanics (both gated on
   dimensions, so: `Inventory_Load_FeatherweightExpand` pre-grows the player inventory before
   items load (preventing extra-row items being compacted/destroyed); the spawn re-apply calls
   `Reconcile()` to set the final height; `InventoryGui_Show_FeatherweightPanel` stretches the
-  window backdrop to wrap the rows **and pushes the chest panel (`m_container`) down** so the
-  extra rows aren't hidden behind it when a container is open. Switching away spills the extra
+  window backdrop to wrap the rows, and the chest panel is kept clear of them by the separate
+  [storage window placement](#storage-window-placement) offset. Switching away spills the extra
   rows into one or more `CargoCrate`s (`Collapse()` — multiple default crates, never an
   over-sized one, since a Container rebuilds from prefab size on reload). On death the tombstone
   copies the inventory size, so nothing is lost.
+
+#### The height is an invariant, not a one-shot write
+
+`Reconcile()` runs on spawn and on a blessing change. Nothing in vanilla re-applies our
+height afterwards, so any later rebuild of the inventory silently drops it back to 8×4 —
+and because **every** vanilla capacity check derives from `m_width * m_height`
+(`CanAddItem`, `HaveEmptySlot`, `GetEmptySlots`, and `FindEmptySlot` inside `AddItem`),
+the extra rows stop counting as capacity even while they still render. The visible
+symptom is auto-pickup and crafting reporting a full inventory with empty extra rows,
+while dragging an item in by hand still works — the explicit-position
+`AddItem(item, pos)` overload only checks `GetItemAt(x, y)` and never reads the height.
+
+`FeatherweightCapacityPatches` closes that gap by re-asserting the blessed height at each
+capacity entry point via `FeatherweightInventory.EnsureExpanded`, which **only ever raises**
+(lowering must go through `Reconcile`/`Collapse`, which crate the surplus first). See
+[patches.md](patches.md#featherweightcapacitypatches-patchesfeatherweightcapacitypatchcs).
+
+**When adding any new inventory-height logic, treat the height as something to re-assert on
+read, not to set once.**
+
+### Capacity is not reachability
+
+A correct `m_height` answers *“is there room?”*. It does **not** guarantee anything can be
+*put* there. Those are two separate questions in vanilla, answered by two separate pieces of
+code, and a mod can replace one without the other:
+
+| Question | Vanilla answer |
+|---|---|
+| Is there room? | `CanAddItem` / `HaveEmptySlot` / `GetEmptySlots` — all arithmetic on `m_width * m_height` |
+| Where does it go? | `FindEmptySlot(topFirst)` — a loop over `y` in `0 .. m_height` |
+
+Vanilla keeps them consistent for free because both read `m_height`. ComfyQuickSlots does
+not: it replaces `FindEmptySlot` with a version that hardcodes `for (y = 0; y < 5; y++)`
+while its `CanAddItem` replacement still computes `m_width * m_height - 5`. Capacity said
+yes, the slot-finder returned `(-1, -1)`, and `AddItem` failed — so with CQS installed the
+Featherweight rows rendered, counted toward free space and accepted hand-dragged items,
+but auto-pickup, `Humanoid.Pickup` and craft output all reported “inventory full” the moment
+rows 0-4 filled. `FeatherweightCapacityPatches` alone could never have fixed this; it was
+already doing its job correctly.
+
+`FeatherweightEmptySlotPatches` supplies the missing half via
+`FeatherweightInventory.FindExtraRowSlot`, which scans `y` over `BaseHeight .. m_height`
+**only** — never the base grid, so no other mod's reserved row can be handed out. See
+[patches.md](patches.md#featherweightemptyslotpatches-patchesfeatherweightemptyslotpatchcs).
+
+**When integrating with any mod that touches the inventory, check both halves.** A capacity
+fix that leaves the slot-finder truncated produces the most confusing possible symptom: an
+inventory that says it has room and then refuses the item.
+
+### Harmony prefix ordering vs. mods that replace a method
+
+In Harmony 2 a prefix returning `false` skips both the original **and every prefix ordered
+after it**. Priority ties are broken by patch order, so a mod that loads earlier and prefixes
+the same method wins by default.
+
+ComfyQuickSlots prefixes four of the five methods `FeatherweightCapacityPatches` covers, and
+loads before BiomeLords — so at equal priority our `EnsureExpanded` was never running on
+those four under CQS. Every prefix in that class therefore carries
+`[HarmonyPriority(Priority.First)]`, which both guarantees we run and means CQS computes its
+own answer from the corrected height.
+
+**Any prefix whose job is to fix state *before* vanilla reads it should be `Priority.First`,**
+or a replacing prefix from another mod will silently skip it.
 
 ### ComfyQuickSlots compatibility
 
@@ -471,17 +579,57 @@ CQS's *own* `"ExtInvGrid"` but with the true `num = height − VanillaHeight` (1
 Featherweight rows), so the single backdrop always covers exactly the rows actually present.
 No-op without CQS; fully try/catch-wrapped.
 
-**Chest-panel shift (both vanilla and CQS).** Whether or not CQS is loaded,
-`InventoryGui_Show_FeatherweightPanel` also shifts the whole chest window (`m_container`) **down**
-by `extraRows × m_elementSpace` plus a small fixed clearance (`ContainerClearancePx`, 22 px) so
-the extra rows — which the grid lays out *below* the base rows — aren't covered by the chest UI
-("the additional rows are underneath the chest UI"). This works in both cases because nothing
-else ever moves `m_container`: vanilla `UpdateContainer` only toggles its active state, and CQS
-only repositions the container *grid root* (a child of `m_container`) to a fixed config point
-`(40, −437)`. Since that grid root is a child, moving `m_container` carries the whole chest
-(backdrop + header + grid) down together while preserving CQS's relative offset. Computed from a
-cached base position; with the blessing off `delta == 0` (and no clearance) so the chest returns
-to exactly its base.
+**Slot-finder replacement** (fixed in 0.6.7): beyond the grid height, CQS also replaces four
+`Inventory` methods outright (prefix returning `false`) with `QuickSlotsManager` versions —
+`FindEmptySlot`, `CanAddItem`, `HaveEmptySlot` and `FindFreeStackSpace`. `GetEmptyInventorySlot`
+(behind `FindEmptySlot`) hardcodes `y < 5`, so it could never return a Featherweight row, while
+the capacity replacements compute `m_width * m_height - 5` and therefore *do* count them. See
+[Capacity is not reachability](#capacity-is-not-reachability) for the resulting failure and
+`FeatherweightEmptySlotPatches` for the fix. Note that BiomeLords patches CQS's own
+`QuickSlotsManager.GetEmptyInventorySlot` (resolved by name via `AccessTools.TypeByName`, behind a
+Harmony `Prepare()` gate, so there is no compile-time reference and no missing-target error without
+CQS) rather than only vanilla `FindEmptySlot` — that also covers CQS's other caller,
+`Humanoid.UnequipItem`, which would otherwise hand unequipped armour to `(-1, -1)` and strand it
+when the base grid is full.
+
+**Chest-panel placement** is no longer part of this — it's handled mod-agnostically by
+[Storage window placement](#storage-window-placement) below, which needs no CQS awareness at all.
+
+### Storage window placement
+
+`Util/StorageWindowPosition.cs` + `Patches/StorageWindowPositionPatch.cs`
+
+The chest/storage window (`InventoryGui.m_container`) sits wherever the player puts it. Two
+inputs, both writing the same pair of client-side (**non**-admin, not server-sync'd) config
+values under section `UI`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `StorageUiOffsetColumns` | `0` | Horizontal offset from the vanilla spot, in inventory cell widths (+ = right) |
+| `StorageUiOffsetRows` | `2` | Vertical offset from the vanilla spot, in inventory row heights (+ = down) |
+
+- **Config** — offsets are measured in **cells** (`m_playerGrid.m_elementSpace`), not pixels, so
+  a given setting looks the same at any UI scale or resolution. Re-read on every
+  `InventoryGui.Show` and on `SettingChanged`, so config-manager edits apply live.
+- **Drag** — `StorageWindowDragger` (a `MonoBehaviour` on `m_container` using the
+  `UnityEngine.EventSystems` drag interfaces) lets the player grab the window anywhere except the
+  item slots and drop it anywhere on screen; on release the position is converted back to cell
+  offsets and saved. Drags starting on a slot are ignored (`StartedOnSlots`) so item handling is
+  untouched — without that check Unity's event bubbling would route slot drags to the window.
+  A clamp keeps ≥ 80 units of the window inside the canvas so it can't be lost off-screen.
+
+The default of `2` rows drops the chest clear of the default `FallerValkyrieExtraRows` of 2, so
+the Featherweight rows aren't hidden behind it. The offset is **static**, not derived from the
+live row count — raise `StorageUiOffsetRows` (or just drag the window) if `FallerValkyrieExtraRows`
+is set above 2.
+
+**Why no mod detection.** Nothing here inspects the plugin list. Vanilla never writes
+`m_container.anchoredPosition` (`UpdateContainer` only toggles its active state), and mods that
+reposition the container — ComfyQuickSlots among them — move the container *grid root*, a
+**child** of `m_container`. Moving `m_container` therefore carries the whole chest (backdrop +
+header + grid) and preserves any other mod's grid-relative offset, so one placement is correct
+with or without them. This replaced an earlier CQS-aware chest shift in
+`InventoryGui_Show_FeatherweightPanel`.
 
 ### Incompatible slot-expansion mods (ExtraSlots, AzuExtendedPlayerInventory)
 
@@ -501,12 +649,14 @@ trying to coexist it fully backs off: `IncompatibleSlotModLoaded` checks
 - `InventoryGui_Show_FeatherweightPanel` (`Patches/FeatherweightInventoryUiPatch.cs`) also
   no-ops, for the same reason as the height guards: with the grid already grown by the other
   mod, `extraRows = GetHeight() − BaseHeight` is large and positive even though Featherweight
-  contributes nothing, so without this guard the panel/backdrop/chest shift would stretch a
+  contributes nothing, so without this guard the panel/backdrop grow would stretch a
   large empty area below the real slots.
 
 Net effect: with either mod installed, Featherweight behaves as carry-cap-only — identical
-to how it'd behave with `FallerValkyrieExtraRows` set to 0 — and the other mod's own UI is
-left completely untouched.
+to how it'd behave with `FallerValkyrieExtraRows` set to 0 — and the other mod's own player-grid
+UI is left completely untouched. [Storage window placement](#storage-window-placement) is
+independent of all this and still applies: it's a player preference, not a Featherweight
+mechanic.
 
 ---
 

@@ -13,8 +13,9 @@ namespace BiomeLords.Patches
     ///      belt-and-braces fix in case Valheim labels items by something
     ///      other than m_itemType.
     /// </summary>
+    // Valheim 1.0 appended a trailing `bool appending` parameter to this overload.
     [HarmonyPatch(typeof(ItemDrop.ItemData), nameof(ItemDrop.ItemData.GetTooltip),
-                  new[] { typeof(ItemDrop.ItemData), typeof(int), typeof(bool), typeof(float), typeof(int) })]
+                  new[] { typeof(ItemDrop.ItemData), typeof(int), typeof(bool), typeof(float), typeof(int), typeof(bool) })]
     public static class ItemData_GetTooltip_Patch
     {
         private static bool _loggedOnce;

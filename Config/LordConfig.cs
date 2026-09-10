@@ -6,9 +6,13 @@ using BiomeLords.Util;
 namespace BiomeLords.Config
 {
     /// <summary>
-    /// BepInEx config wrapper. Every entry is marked IsAdminOnly so that on a
-    /// dedicated server, the server's values are pushed to clients via Jotunn's
+    /// BepInEx config wrapper. Every gameplay entry is marked IsAdminOnly so that on
+    /// a dedicated server, the server's values are pushed to clients via Jotunn's
     /// SynchronizationManager — clients cannot locally override these.
+    ///
+    /// The "UI" section is the deliberate exception: those entries are pure local
+    /// cosmetics (window placement) written by the player dragging the window, so
+    /// they are bound WITHOUT IsAdminOnly and stay client-side.
     /// </summary>
     public static class LordConfig
     {
@@ -27,6 +31,8 @@ namespace BiomeLords.Config
         public static ConfigEntry<float>  ValkyrieRallyRestedSeconds;
         public static ConfigEntry<string> HallRecipe;
         public static ConfigEntry<string> HornRecipe;
+        public static ConfigEntry<float>  StorageUiOffsetColumns;
+        public static ConfigEntry<float>  StorageUiOffsetRows;
 
         private static readonly Dictionary<string, ConfigEntry<int>>   _killReq =
             new Dictionary<string, ConfigEntry<int>>();
@@ -107,6 +113,22 @@ namespace BiomeLords.Config
                       "the Workbench. Example: 'NeckTail:5,TrophyDeer:1,Bronze:1' (default). " +
                       "Use vanilla item prefab names. Amounts ≤ 0 skip that requirement. " +
                       "Requires a restart to take effect."));
+
+            // Local (non-admin, not server-sync'd): where the chest/storage window sits.
+            // Measured in inventory cells rather than pixels so the placement is identical
+            // at any UI scale or resolution. Both are relative to the window's vanilla
+            // position, and both are rewritten whenever the player drags the window.
+            StorageUiOffsetColumns = cfg.Bind("UI", "StorageUiOffsetColumns", 0f,
+                "Horizontal position of the chest/storage window, in inventory cell widths " +
+                "away from its vanilla spot. Positive = right, negative = left. 0 = vanilla. " +
+                "Drag the storage window in-game to set this automatically.");
+
+            StorageUiOffsetRows = cfg.Bind("UI", "StorageUiOffsetRows", 2f,
+                "Vertical position of the chest/storage window, in inventory row heights " +
+                "below its vanilla spot. Positive = down, negative = up. The default of 2 " +
+                "drops it two rows clear of the player inventory so the Featherweight extra " +
+                "rows have room. 0 = vanilla (flush under the player inventory). " +
+                "Drag the storage window in-game to set this automatically.");
 
             foreach (var lord in LordRegistry.All)
             {

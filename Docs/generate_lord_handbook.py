@@ -73,7 +73,7 @@ LORDS = [
             ("Jaws",              0, 6, 0, 0, 0, 0, 0, "V", "AI",    "Vanilla melee"),
             ("Tidal Shot",  "18†", 0, 0, 0, 0, 0, 0, 25,   "12 s",  "Ranged blob; 5–18 m; 60° arc; 1 s pause; 1.5 m splash; ×3 in Frenzy"),
             ("Tide Shield",       0, 0, 0, 0, 0, 0, 0,  0,  "≤50% HP", "Reactive block; player attacking ≤6 m; 2.5 s window; 12 s inter-CD"),
-            ("Tide Caller",       0, 0, 0, 0, 0, 0, 0,  0,  "45 s",  "Summon only — 2 Necks, max 3"),
+            ("Tide Caller",       0, 0, 0, 0, 0, 0, 0,  0,  "45 s",  "Summon only — 2 Necks, max 3; fire-immune, hunt on spawn"),
             ("Frenzy ≤30% HP",    0, 0, 0, 0, 0, 0, 0,  0,  "once",  "+50% speed, red tint, sparks; Tidal Shot fires ×3"),
         ],
         "abilities": [
@@ -88,7 +88,9 @@ LORDS = [
              "Ward flash (fx_guardstone_activate) on activation; "
              "fx_GoblinShieldHit on each blocked hit."),
             ("Tide Caller", "45 s", "Cap-gated (max 3 Necks within 20 m)",
-             "Spawns 2 Necks 3 m flanking with vfx_spawn"),
+             "Spawns 2 NeckLordMinion 3 m flanking with vfx_spawn. "
+             "Unafraid of fire and hunt-player enabled (both baked into the prefab); "
+             "alerted and targeted on spawn via ConfigureMinion."),
             ("Frenzy", "One-shot", "HP ≤ 30%",
              "+50% speed, brighter red tint, periodic spark pulse. "
              "Tidal Shot fires 3 projectiles (center + ± 20° spread) instead of 1."),
@@ -109,7 +111,13 @@ LORDS = [
                        "+50% damage — and the Wet status can no longer harm you.",
         },
         "notes": [
-            "m_avoidFire = false — fire-avoidance behaviour removed from the vanilla Neck clone.",
+            "Fire fear removed: BOTH m_afraidOfFire and m_avoidFire cleared on the clone. Vanilla Neck sets "
+            "both, and MonsterAI gates on (m_afraidOfFire || m_avoidFire), so clearing only m_avoidFire "
+            "— as builds before 0.6.8 did — changed nothing. Neck is the only Lord base creature with "
+            "either flag set; fire damage is unaffected.",
+            "Summons are NeckLordMinion, a registered Neck clone carrying the same fire fix plus "
+            "m_enableHuntPlayer, so both traits survive network ownership transfer. Not registered as a "
+            "Lord: killing one grants no Forsaken Power and no kill credit.",
             "†Tidal Shot damage: HitData.SetAttacker points to the Neck Lord, so hits are "
             "routed through LordDamageBoostPatch and overwritten with the Lord's resolved "
             "attack profile (20 pierce at native tier, converging with progression).",
@@ -174,7 +182,7 @@ LORDS = [
                        "30% faster (QuickSproutGrowthPatch). Forest's Embrace: sit beside a "
                        "mature tree with no monsters within 30 m to heal — the older the tree, "
                        "the stronger the gift (1 HP near Beech/Birch up to 5-6 HP near "
-                       "Yggdrasil/Charred trees, every 3 s). After 60 s of seated rest the "
+                       "Yggdrasil/Charred trees, every 3 s). After 30 s of seated rest the "
                        "forest grants a Rested buff; older trees extend it further "
                        "(Beech/Birch +1, Oak +2, Yggdrasil/Charred +3).",
         },

@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Reflection;
+using HarmonyLib;
 using UnityEngine;
 using Jotunn.Managers;
 using BiomeLords.Util;
@@ -22,7 +24,12 @@ namespace BiomeLords.Phase1B
         private const float MinionDetectRadius  = 20f;
         private const float FrenzyHpFraction    = 0.30f;
         private const float FrenzySpeedFactor   = 1.5f;
-        private const string MinionPrefabName   = "Neck";
+        // The registered clone (fire fear cleared and hunt-player baked in, so those
+        // survive ownership transfer), and the vanilla prefab to fall back on if the
+        // clone failed to register. ConfigureMinion covers the fallback per instance.
+        private const string MinionPrefabName   = CreatureFactory.NeckLordMinionPrefab;
+        private const string MinionFallbackName = "Neck";
+        private const float  MinionTargetRange  = 60f;
 
         private const float BlobCooldown        = 12f;
         private const float BlobMinRange        =  5f;
@@ -35,6 +42,15 @@ namespace BiomeLords.Phase1B
 
         private Character _character;
         private ZNetView  _nview;
+        private MonsterAI _lordAI;
+
+        // Vanilla keeps both of these non-public: BaseAI.SetAlerted is protected (MonsterAI
+        // overrides it) and MonsterAI.SetTarget is private. Resolved once; null if a Valheim
+        // update renames them, in which case ConfigureMinion silently skips that step.
+        private static readonly MethodInfo SetAlertedMethod =
+            AccessTools.Method(typeof(BaseAI), "SetAlerted", new System.Type[] { typeof(bool) });
+        private static readonly MethodInfo SetTargetMethod =
+            AccessTools.Method(typeof(MonsterAI), "SetTarget", new System.Type[] { typeof(Character) });
 
         private float  _baseSpeed;
         private float  _baseRunSpeed;
@@ -56,6 +72,7 @@ namespace BiomeLords.Phase1B
         {
             _character = GetComponent<Character>();
             _nview     = GetComponent<ZNetView>();
+            _lordAI    = GetComponent<MonsterAI>();
 
             if (_character != null)
             {
@@ -241,7 +258,8 @@ namespace BiomeLords.Phase1B
                 float angle  = (i * 180f) + Random.Range(-30f, 30f);
                 Vector3 dir  = Quaternion.Euler(0f, angle, 0f) * Vector3.forward;
                 Vector3 pos  = transform.position + dir * MinionSpawnRadius + Vector3.up * 0.2f;
-                Instantiate(_cachedMinion, pos, Quaternion.LookRotation(-dir));
+                var minion   = Instantiate(_cachedMinion, pos, Quaternion.LookRotation(-dir));
+                ConfigureMinion(minion);
                 FxLibrary.TrySpawn("vfx_spawn", pos);
             }
 
@@ -265,9 +283,65 @@ namespace BiomeLords.Phase1B
             return count;
         }
 
+        /// <summary>
+        /// Point a freshly summoned minion at the fight.
+        ///
+        /// The durable traits — no fear of fire, and hunting the player — are baked into
+        /// the `NeckLordMinion` prefab (CreatureFactory.BuildNeckLordMinion) precisely
+        /// because everything set HERE is local to this instance: only the owner's copy
+        /// carries it, so it would be lost the moment ownership moved to another client.
+        /// They are still re-asserted below, cheaply and idempotently, because they are
+        /// what makes the vanilla-`Neck` fallback path behave correctly when the clone
+        /// failed to register.
+        ///
+        /// What genuinely belongs here is the instant-on, which no prefab field can express:
+        ///   • `SetAlerted(true)` — alert animation and run speed immediately, instead of
+        ///     idling until something notices a player.
+        ///   • `SetTarget(...)` — a target on the very first frame rather than after the
+        ///     next target-update tick (`m_updateTargetTimer`, randomised 0-2 s).
+        /// Both are non-public in vanilla (`BaseAI.SetAlerted` protected virtual,
+        /// `MonsterAI.SetTarget` private) so they go through AccessTools. If a Valheim
+        /// update renames either, the prefab's hunt-player flag still carries the
+        /// behaviour and only the instant-on is lost.
+        ///
+        /// The target is the Lord's own current target where it has one, so summons join
+        /// the fight already in progress rather than each picking their own player.
+        /// </summary>
+        private void ConfigureMinion(GameObject minion)
+        {
+            if (minion == null) return;
+            try
+            {
+                var ai = minion.GetComponent<MonsterAI>();
+                if (ai == null) return;
+
+                // No-ops on a NeckLordMinion (already baked in); the real work on the
+                // vanilla-Neck fallback path.
+                CreatureFactory.ClearFireFear(ai);
+                ai.m_enableHuntPlayer = true;
+                ai.SetHuntPlayer(true);
+
+                SetAlertedMethod?.Invoke(ai, new object[] { true });
+
+                var target = _lordAI != null ? _lordAI.GetTargetCreature() : null;
+                if (target == null || target.IsDead())
+                    target = Player.GetClosestPlayer(minion.transform.position, MinionTargetRange);
+                if (target != null)
+                    SetTargetMethod?.Invoke(ai, new object[] { target });
+            }
+            catch (System.Exception ex)
+            {
+                // A summon that fights like a normal Neck is far better than a brain that
+                // stops summoning, so never let this abort TrySummonMinions.
+                Jotunn.Logger.LogWarning($"[BiomeLords] Neck Lord minion setup skipped: {ex.Message}");
+            }
+        }
+
         private static void EnsurePrefabs()
         {
-            if (_cachedMinion == null) _cachedMinion = PrefabManager.Instance.GetPrefab(MinionPrefabName);
+            if (_cachedMinion != null) return;
+            _cachedMinion = PrefabManager.Instance.GetPrefab(MinionPrefabName)
+                         ?? PrefabManager.Instance.GetPrefab(MinionFallbackName);
         }
     }
 }
