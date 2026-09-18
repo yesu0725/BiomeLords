@@ -6,6 +6,8 @@ Bug fix.
 
 - **The chest/storage window can be dragged to the bottom of the screen again.** It could only be moved around the upper part of the screen — drag it lower and it crept back up as you dragged. The window was being kept inside the wrong rectangle, and it was re-checked on every frame of the drag, so it was pushed back faster than you could pull it down. It is now checked against the actual screen, and only once you let go, so the window goes where you put it and only gets nudged if you genuinely drop it off the edge. If you run Lost Scrolls II as well, this is the same window its companion inventory uses — BiomeLords owns that window's position when both mods are installed, so this fixes the companion inventory too.
 
+**Now requires Jotunn 2.30.1 or newer.** Jotunn 2.30 is the release that was updated for Valheim 1.0, and it brings BiomeLords' admin console commands back. Thunderstore installs it for you; if you manage mods by hand, update Jotunn alongside this release.
+
 ## 0.6.11
 
 Valheim 1.0 compatibility.
