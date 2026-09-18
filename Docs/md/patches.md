@@ -261,7 +261,12 @@ compile-time dependency on `Unity.TextMeshPro`.
 
 ### `Inventory_Load_FeatherweightExpand` (`Patches/InventoryExpandLoadPatch.cs`)
 
-**Target:** `Inventory.Load` prefix  
+**Target:** every `Inventory.Load` overload, prefix — selected by `TargetMethods()`.
+Valheim 1.0 added `Load(ZPackage, bool)` beside `Load(ZPackage)`, so a name-only
+`[HarmonyPatch(typeof(Inventory), nameof(Inventory.Load))]` now fails with
+`Ambiguous match`. The two bodies are identical and every vanilla caller
+(`Player`, `Container`, `ZDOMan`) uses the single-argument one, but hooking both costs
+nothing and doesn't bet on which one a future patch or another mod routes through.  
 **What it does:** Valheim saves item grid positions but **not** inventory dimensions, so the
 player inventory always reloads at 8×4. This prefix detects the player inventory (name
 `"Inventory"` **or** `"ComfyQuickSlotsInventory"`, width 8 — see CQS note below) and
@@ -299,8 +304,15 @@ grid or crates items sitting in rows that actually belong to the other mod. See
 
 **Targets:** five `Inventory` prefixes (nested patch classes) —
 `CanAddItem(ItemData, int)`, `AddItem(ItemData)`,
-`AddItem(string, int, int, int, long, string, Vector2i, bool)`, `HaveEmptySlot()`,
+`AddItem(string, int, int, int, long, string, Vector2i, bool, bool, bool)`, `HaveEmptySlot()`,
 `GetEmptySlots()`. Each calls `FeatherweightInventory.EnsureExpanded(__instance)`.
+
+The string `AddItem` overload is matched by an explicit type array, so it is the one
+patch here that a vanilla signature change breaks silently — 1.0 appended
+`bool pickedUp, bool dropIfFullInv` and the patch was skipped
+(`Could not find method … parameters (string, int, int, int, long, string, Vector2i, bool)`)
+until the array was extended. When that happens crafting output stops landing in the
+Featherweight rows while every other path still works.
 
 **Why it exists.** Vanilla answers *"is there room?"* purely from `m_width * m_height`:
 
@@ -448,8 +460,41 @@ Featherweight rows aren't hidden behind it. Both values are re-read on every `Sh
 anywhere — backdrop, header, weight readout — and drop it anywhere on screen. On release the
 final position is converted back to cell offsets and written to config, so it persists.
 Pointer→panel math goes through `RectTransformUtility.ScreenPointToLocalPointInRectangle` on the
-parent rect, which is correct under any canvas scale. A `Clamp` keeps at least 80 units of the
-window inside the canvas, so a stray drag (or a wild config value) can't park it off-screen.
+parent rect, which is correct under any canvas scale.
+
+**Clamping (rewritten in 0.6.12).** `ClampToScreen` keeps at least `ScreenMargin` (48 **screen
+pixels**) of the window reachable on each axis, so a stray drag or a wild config value can't
+park it where it can't be grabbed back. Three rules, each of which the original got wrong:
+
+1. **Measure in screen pixels, not the parent's rect.** The old `Clamp` compared the window's
+   world corners against `parent.rect`. That only bounds it to the *screen* if the parent is
+   the full-screen canvas — and `m_container`'s parent isn't. Everything past the parent's edge
+   read as "off screen". `TryGetScreenRect` now runs each corner through
+   `RectTransformUtility.WorldToScreenPoint` with the canvas camera (null for Screen Space
+   Overlay) and tests against `Screen.width` / `Screen.height`. Correct under every render
+   mode and canvas scale, with no assumption about the hierarchy left to be wrong.
+2. **Never clamp mid-drag.** The old code clamped on *every* `OnDrag` event. Combined with (1)
+   the window was pushed back toward the parent's bounds faster than it could be dragged away,
+   which is what "it only moves in the top half of the screen" actually was. `SetDragged` now
+   just sets the position; the clamp runs in `Apply` (config), `HookConfig.OnChanged` (live
+   edit) and once in `CommitDragged` — drag **end** — before the position is read back into
+   config, so what's saved is what the player is looking at.
+3. **Refuse to clamp on bad numbers.** `TryGetScreenRect` bails on NaN/Infinity or a
+   degenerate (< 1 px) rect rather than shoving the window somewhere on a measurement it
+   doesn't understand; the margin is also capped at the window's own size so a small window
+   can settle. The correction is converted back to `anchoredPosition` units by
+   `TryScreenDeltaToLocal` — two `ScreenPointToLocalPointInRectangle` calls on the parent —
+   so there's no `scaleFactor` arithmetic to get wrong.
+
+This is the same design as `ContainerPanelPositioner` in Lost Scrolls II, which hit the
+identical bug and was fixed the same way first.
+
+**Lost Scrolls II interaction.** Lost Scrolls' companion inventory uses this exact vanilla
+panel, and its `ContainerPanelPositioner.Enabled` returns **false whenever a plugin whose GUID
+or name contains "biomelord" is loaded** — it hands the panel to us to avoid two positioners
+fighting. So with both mods installed, BiomeLords is the *only* thing placing the chest
+window **and** the companion inventory: a bug here shows up as a companion-inventory bug in
+Lost Scrolls, and nothing Lost Scrolls does about that panel has any effect.
 
 **Gotcha — slot drags.** Unity routes drag events to the nearest **ancestor** that handles them,
 so a drag starting on an item slot would bubble up and move the window. `StartedOnSlots` checks
@@ -502,10 +547,16 @@ Each event specifies biome, weather variant, and music.
 **What it does:** On Horn use, verifies kill count ≥ requirement, verifies correct biome,
 then calls `SummonService.Summon(lord)` to start the event and spawn the Lord.
 
-### `HornTooltipPatch` (`Patches/HornTooltipPatch.cs`)
+### `HornTooltipPatch` — `ItemData_GetTooltip_Patch` (`Patches/HornTooltipPatch.cs`)
 
-**Target:** `ItemDrop.ItemData.GetTooltip` postfix  
-**What it does:** Appends current kill count / requirement to the Horn's tooltip text.
+**Target:** `ItemDrop.ItemData.GetTooltip(ItemData, int, bool, float, int, bool)` postfix —
+the static six-argument overload, matched by explicit type array. Valheim 1.0 appended the
+trailing `bool appending`; without it in the array the patch is skipped.  
+**What it does:** For the Lord's Horn only, a belt-and-braces `"Utility"` → `"Consumable"`
+find/replace on the rendered tooltip in case Valheim labels the item by something other than
+`m_itemType`, and — with `DebugLogging` on — logs the raw tooltip text once per session so you
+can see where a stray label is coming from. (The kill-count / requirement lines are built in
+`ItemFactory`, not here.)
 
 ---
 
@@ -513,9 +564,28 @@ then calls `SummonService.Summon(lord)` to start the event and spawn the Lord.
 
 ### `PedestalInteractPatch` (`Patches/PedestalInteractPatch.cs`)
 
-**Target:** `Piece.Interact` postfix  
-**What it does:** Detects Lord Pedestal interaction, triggers `BlessingSystem` to grant
-the blessing and decrement the trophy's charge count.
+Six patch classes on `ItemStand`, all gated on `GetComponent<LordsPedestalTag>()` so ordinary
+item stands are untouched:
+
+| Class | Target | Role |
+|---|---|---|
+| `ItemStand_Interact_Patch` | `Interact` prefix | Tap **E** → `BlessingSystem.TryGrant`; hold **E** with a trophy mounted → blocked with `$biomelords_pedestal_locked`; Shift+E / empty stand → vanilla |
+| `ItemStand_CanAttach_LordsOnly` | `CanAttach` postfix | Only Lord trophies (`BlessingSystem.TryResolve`) may be mounted |
+| `ItemStand_DropItem_LockTrophy` | `DropItem` prefix | Defence in depth — no path may drop a mounted trophy back to the world; our `ConsumeTrophy` goes through `DestroyAttachment` instead |
+| `ItemStand_UseItem_ResetCharges` | `UseItem` postfix | Safety-net `ResetCharges` on a successful mount; owns `PlayMountCeremony` (golden pops + sparks ring — deliberately no green VFX) |
+| `ItemStand_SetVisualItem_MountHook` | `SetVisualItem(int, int, int, int)` postfix | The canonical "trophy just got mounted" hook: `ResetCharges` + the ceremony, but only for a *fresh* mount — a ZDO key (`biomelords.ceremony_for`) stores the last-ceremonied trophy name, so the replay on world load matches and stays silent |
+| `ItemStand_GetHoverText_Patch` | `GetHoverText` postfix | Hover overlay: charges remaining / cooldown / "spirit spent", plus the locked-until-consumed reminder |
+
+**Valheim 1.0 — item stands store a hash now.** `ItemStand.GetAttachedItem()` returns the
+trophy's `GetStableHashCode()` (an `int`) rather than its prefab name, and `SetVisualItem`
+became `(int itemHash, int variant, int quality, int orientation)` — the old
+`(string itemName, int variant, int quality)` is gone. Every lookup in this file is keyed on
+the prefab name (that's what `BlessingSystem.ByTrophy` maps), so all of them go through
+`BlessingSystem.ResolveAttachedName`, which resolves the hash via
+`ObjectDB.instance.GetItemPrefab(int)` → `.name` and returns null for `0` / no ObjectDB / no
+prefab. The `SetVisualItem` postfix takes `int itemHash` and resolves it the same way before
+comparing against the ceremony key — so the key keeps storing the **name**, and pedestals
+mounted before 1.0 carry over without re-firing their ceremony.
 
 ### `PedestalProtectPatch` (`Patches/PedestalProtectPatch.cs`)
 

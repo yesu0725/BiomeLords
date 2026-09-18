@@ -16,6 +16,22 @@ Output: `bin\Release\netstandard2.1\BiomeLords.dll`
 Warnings are expected (Jotunn and Valheim assembly nullability); errors are not.
 The build should always end with `0 Error(s)`.
 
+### Reference assemblies
+
+Two roots, set in `BiomeLords.csproj`:
+
+| Property | Points at | Supplies |
+|---|---|---|
+| `ValheimPath` | Steam client install | `assembly_valheim`, `assembly_utils`, `assembly_guiutils`, all `UnityEngine.*` |
+| `GaleProfilePath` | Gale profile **TG Mods Only** | `BepInEx`, `0Harmony`, `Jotunn` |
+
+They are split because **Valheim 1.0 ships no `BepInEx\` folder inside the Steam install**
+— Gale keeps its own copy per profile — so the game assemblies and the modding libraries
+live in different places. If a build fails with `Could not locate the assembly "BepInEx"`
+(or `0Harmony` / `Jotunn`), `GaleProfilePath` is pointing at a profile that doesn't exist
+or doesn't have Jotunn installed. Point it at whichever profile holds the Jotunn version
+you want to compile against.
+
 ---
 
 ## Deploy
@@ -25,36 +41,121 @@ DLL to all three destinations automatically — no manual step:
 
 | Destination | Path |
 |---|---|
-| Valheim install | `$(ValheimPath)\BepInEx\plugins\BiomeLords` |
+| Gale client profile **TG Mods Only** (current test profile) | `$(GaleProfilePath)\BepInEx\plugins\TaegukGaming-BiomeLords` |
 | Gale client profile **HB Test** | `%APPDATA%\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords` |
 | Local dedicated server | `C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server\BepInEx\plugins\TaegukGaming-BiomeLords` |
+
+The old first hop, `$(ValheimPath)\BepInEx\plugins\BiomeLords`, was dropped with 0.6.11:
+that folder no longer exists (see *Reference assemblies* above) and creating it would plant
+a stray `BepInEx\` in a vanilla install.
+
+**The dedicated-server copy fails while the server is running.** Windows refuses to
+overwrite a DLL that a process has mapped (`MSB3021 … user-mapped section open`); MSBuild
+retries ten times and then reports the build as failed, even though the compile and the
+two Gale copies succeeded. Stop the server (a plain `taskkill /PID <n>` without `/F` lets
+it save the world first), rebuild or copy by hand, restart it.
 
 To deploy by hand:
 
 ```powershell
 $src  = "E:\Valheim Modding\ValheimBiomeLords\Github\BiomeLords\bin\Release\netstandard2.1\BiomeLords.dll"
-$dest = "C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords\BiomeLords.dll"
+$dest = "C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\TG Mods Only\BepInEx\plugins\TaegukGaming-BiomeLords\BiomeLords.dll"
 Copy-Item $src $dest -Force
+```
+
+Confirm every copy is the same build before testing — a stale DLL in one location is the
+classic "but I fixed that" trap:
+
+```powershell
+Get-FileHash bin\Release\netstandard2.1\BiomeLords.dll, "$dest" | Format-Table Hash, Path
 ```
 
 ---
 
 ## Logs
 
-BepInEx log for runtime errors:
+BepInEx log for runtime errors (per Gale profile — substitute the profile you launched):
 ```
-C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\LogOutput.log
+C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\TG Mods Only\BepInEx\LogOutput.log
 ```
 
 Key lines to look for after a fresh launch:
 ```
-[Info   :BiomeLords] BiomeLords 0.6.10 loaded. 7 Lords registered.
+[Info   :BiomeLords] BiomeLords 0.6.12 loaded. 7 Lords registered.
 [Info   :BiomeLords] Harmony: N patch classes applied, M skipped.
 ```
 
 If `M > 0`, check for `[Error :BiomeLords] Patch class ... failed:` lines.
 Common causes: vanilla method renamed in a Valheim update, ambiguous overload,
-wrong parameter name in postfix signature.
+wrong parameter name in postfix signature. See *Surviving a Valheim update* below —
+each of those has a distinct log signature and a distinct fix.
+
+A `MissingMethodException: Method not found: ... ` in a stack trace that passes through
+BiomeLords code is **not** a patch problem: it means a vanilla method the mod *calls*
+changed signature and the DLL was compiled against the old one. Rebuild.
+
+---
+
+## Surviving a Valheim update
+
+Valheim 1.0 (September 2026) broke the mod without changing a line of its code — six
+vanilla members changed shape. This is the procedure that found and fixed all of them
+in one pass; do it whenever the game updates, **before** launching.
+
+**1. Decompile the new assembly.** `ilspycmd` is installed as a global dotnet tool.
+
+```powershell
+$out = "$env:TEMP\vh_decomp"
+New-Item -ItemType Directory -Force $out | Out-Null
+ilspycmd -p -o $out "C:\Program Files (x86)\Steam\steamapps\common\Valheim\valheim_Data\Managed\assembly_valheim.dll"
+```
+
+(`-p` writes one `.cs` per type, which is what the checker below expects. `-t TypeName`
+decompiles a single type when you only need to read one thing.)
+
+**2. Run the patch checker.** It verifies, offline, every Harmony target and every injected
+parameter name against the decompile — the two things the C# compiler cannot see:
+
+```powershell
+python Docs/tools/verify_patch_targets.py --decompiled $out
+```
+
+Exit code 0 means every `[HarmonyPatch(typeof(T), "name")]` / `AccessTools` lookup still
+resolves and every `Prefix`/`Postfix` parameter name still matches vanilla. Anything it
+prints is a load-time failure you have just avoided.
+
+**3. Build.** The compiler catches the rest: changed return types (`GetAttachedItem` going
+`string` → `int` in 1.0), changed parameter types, removed members.
+
+**4. Read the log once.** Two things slip past both steps above and only show in
+`LogOutput.log`:
+
+| Log line | Meaning | Fix |
+|---|---|---|
+| `AccessTools.DeclaredMethod: Could not find method for type X and name Y and parameters (…)` | A patch's explicit `new[] { typeof(...) }` array no longer matches — vanilla added or changed a parameter | Extend the type array to the new signature (`HornTooltipPatch`, `FeatherweightCapacityPatch` in 1.0) |
+| `Ambiguous match for HarmonyMethod[(class=X, methodname=Y, … args=undefined)]` | Vanilla added an overload and the patch names the method without an argument list | Give it one, or switch to `TargetMethods()` and patch every overload (`InventoryExpandLoadPatch`) |
+| `Failed to patch … Parameter "x" not found in method …` → `IL Compile Error` | A `Prefix`/`Postfix` parameter is named after a vanilla parameter that was renamed | Rename to match; if the *type* changed too, resolve the new value back (`ItemStand_SetVisualItem_MountHook`: `string itemName` → `int itemHash`) |
+| `MissingMethodException: Method not found: … (A,B,C)` at runtime, stack through BiomeLords | A method the mod **calls** gained a parameter (even an optional one — C# bakes the full argument list into the call site) | Just rebuild against the new assembly; nothing to edit |
+
+**What changed in 1.0**, for reference:
+
+| Vanilla member | Change | Where it bit |
+|---|---|---|
+| `ItemDrop.ItemData.GetTooltip(...)` | `+ bool appending` | `HornTooltipPatch` |
+| `Inventory.Load(ZPackage)` | second overload `Load(ZPackage, bool)` added | `InventoryExpandLoadPatch` |
+| `Inventory.AddItem(string, …, Vector2i, bool)` | `+ bool pickedUp, bool dropIfFullInv` | `FeatherweightCapacityPatch` |
+| `ItemStand.SetVisualItem(string itemName, int, int)` | `(int itemHash, int, int, int orientation)` | `PedestalInteractPatch` |
+| `ItemStand.GetAttachedItem()` | returns `int` hash, was `string` name | `PedestalInteractPatch`, `BlessingSystem.ResolveAttachedName` |
+| `SEMan.AddStatusEffect(...)` | `+ short variant` | every blessing/power grant (rebuild) |
+| `Character.Message(...)` | `+ bool log` | `PowerEffectsService` and others (rebuild) |
+| `Terminal.ConsoleCommand` ctor | `+ bool onlyAdmin` (13 args) | **Jotunn**, not us — see below |
+
+**Jotunn.** Jotunn 2.29.2's `CommandManager` looks up a 12-argument `ConsoleCommand`
+constructor by exact type array and logs `No suitable constructor for Terminal.ConsoleCommand
+found` once per command on 1.0. Every `DebugCommands` entry is silently dropped; nothing else
+in Jotunn was observed to break. It is Jotunn's bug — update Jotunn when a 1.0-compatible
+release exists, and bump the `ValheimModding-Jotunn-x.y.z` dependency string in
+`Thunderstore files/BiomeLords/manifest.json` to match.
 
 ---
 
@@ -312,4 +413,11 @@ python generate_lord_handbook.py
 | `SE_Rested_CalculateComfort` ambiguous match | Multiple overloads in newer Valheim | Use `[HarmonyTargetMethod]` to select `(Player) → int` overload |
 | `Minimap.AddPin` compile error | `Splatform.dll` not referenced; newer overload uses `PlatformUserID` | Call `AddPin` via reflection, select smallest-arity overload |
 | `PatchAll` aborts mid-way | One bad target kills everything | Use per-class patching loop with try/catch (already in Plugin.Awake) |
+| `Patch class … failed: Patching exception in method null` | Explicit `new[] { typeof(...) }` array no longer matches any overload | See *Surviving a Valheim update* — extend the array |
+| `Patch class … failed: Ambiguous match` | Vanilla gained an overload; patch has no arg list | `TargetMethods()` over all overloads, or add the arg list |
+| `Patch class … failed: IL Compile Error` | `Prefix`/`Postfix` parameter named after a renamed vanilla parameter | Rename to match (`verify_patch_targets.py` catches this offline) |
+| `MissingMethodException` at runtime through mod code | Called vanilla method gained a parameter; DLL built against old assembly | Rebuild — no code change |
+| Build: `Could not locate the assembly "BepInEx"` | `GaleProfilePath` points at a profile without BepInEx/Jotunn | Fix the path in `BiomeLords.csproj` |
+| Build: `MSB3021 … user-mapped section open` on the server copy | Dedicated server is running and has the DLL loaded | Stop the server, then copy; the compile itself succeeded |
+| Chest/storage window only drags in the top of the screen | Clamp measured against the parent rect and re-ran every drag frame | Fixed 0.6.12 — clamp in screen pixels, on drag **end** only (`StorageWindowPosition.ClampToScreen`) |
 | SE not appearing on HUD | Icon not assigned before first render | `StatusEffectFactory.EnsureIcon` lazy-assigns from trophy icon or falls back to any vanilla SE icon |

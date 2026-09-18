@@ -86,6 +86,7 @@ BiomeLords/
 └── Docs/
     ├── generate_lord_handbook.py  ReportLab PDF generator
     ├── BiomeLords_Handbook.pdf    Generated handbook
+    ├── tools/verify_patch_targets.py  Offline Harmony-target/param check vs a decompiled assembly_valheim — run after every Valheim update
     └── md/                        Detailed developer docs (this folder)
 ```
 
