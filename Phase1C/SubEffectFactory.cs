@@ -15,6 +15,7 @@ namespace BiomeLords.Phase1C
     public static class SubEffectFactory
     {
         public const string ForestSitSE  = "SE_ForestSitting";
+        public const string PetrifiedSkinSE = "SE_PetrifiedSkin";
 
         public static readonly Dictionary<string, StatusEffect> ByName =
             new Dictionary<string, StatusEffect>();
@@ -24,15 +25,36 @@ namespace BiomeLords.Phase1C
             // ForestSit: infinite TTL → no countdown shown in HUD. Service
             // manually removes it when conditions break (sitting/safe/tree).
             RegisterMarker(ForestSitSE, "se_forestsit",  iconHint: "Rested",   ttl: 0f);
+
+            // Petrified Skin (Petrify FP): the stone shell itself. TTL is set per
+            // application from LordConfig.PetrifyDuration by PetrifyService.
+            RegisterMarker(PetrifiedSkinSE, "se_petrifiedskin", iconHint: "Stone", ttl: 6f, configure: se =>
+            {
+                se.m_staggerModifier = -1.0f;                 // cannot be staggered
+                se.m_speedModifier   = -0.60f;                // stone is heavy
+                se.m_mods = new List<HitData.DamageModPair>   // VeryResistant = x0.25 (−75%)
+                {
+                    new HitData.DamageModPair { m_type = HitData.DamageType.Blunt,     m_modifier = HitData.DamageModifier.VeryResistant },
+                    new HitData.DamageModPair { m_type = HitData.DamageType.Slash,     m_modifier = HitData.DamageModifier.VeryResistant },
+                    new HitData.DamageModPair { m_type = HitData.DamageType.Pierce,    m_modifier = HitData.DamageModifier.VeryResistant },
+                    new HitData.DamageModPair { m_type = HitData.DamageType.Fire,      m_modifier = HitData.DamageModifier.VeryResistant },
+                    new HitData.DamageModPair { m_type = HitData.DamageType.Frost,     m_modifier = HitData.DamageModifier.VeryResistant },
+                    new HitData.DamageModPair { m_type = HitData.DamageType.Lightning, m_modifier = HitData.DamageModifier.VeryResistant },
+                    new HitData.DamageModPair { m_type = HitData.DamageType.Poison,    m_modifier = HitData.DamageModifier.VeryResistant },
+                    new HitData.DamageModPair { m_type = HitData.DamageType.Spirit,    m_modifier = HitData.DamageModifier.VeryResistant },
+                };
+            });
         }
 
-        private static void RegisterMarker(string seName, string locKey, string iconHint, float ttl = 5f)
+        private static void RegisterMarker(string seName, string locKey, string iconHint, float ttl = 5f,
+                                           System.Action<SE_Stats> configure = null)
         {
             var se = ScriptableObject.CreateInstance<SE_Stats>();
             se.name      = seName;
             se.m_name    = "$" + locKey;
             se.m_tooltip = "$" + locKey + "_tooltip";
             se.m_ttl     = ttl;
+            configure?.Invoke(se);
 
             var custom = new CustomStatusEffect(se, fixReference: false);
             ItemManager.Instance.AddStatusEffect(custom);

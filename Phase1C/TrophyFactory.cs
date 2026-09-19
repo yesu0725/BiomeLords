@@ -20,6 +20,7 @@ namespace BiomeLords.Phase1C
         public const string LoxLordTrophy         = "TrophyLoxLord";
         public const string SeekerLordTrophy      = "TrophySeekerLord";
         public const string FallerValkyrieLordTrophy = "TrophyFallerValkyrieLord";
+        public const string GammeltrollLordTrophy    = "TrophyGammeltrollLord";
 
         public static void RegisterAll()
         {
@@ -30,6 +31,45 @@ namespace BiomeLords.Phase1C
             BuildLoxLordTrophy();
             BuildSeekerLordTrophy();
             BuildFallerValkyrieLordTrophy();
+            BuildGammeltrollLordTrophy();
+        }
+
+        private static void BuildGammeltrollLordTrophy()
+        {
+            // Valheim 1.0's Gammeltroll trophy is the "TrophyFrostTroll" prefab.
+            var trophy = new CustomItem(GammeltrollLordTrophy, "TrophyFrostTroll", new ItemConfig
+            {
+                Name        = "$item_trophygammeltrolllord",
+                Description = "$item_trophygammeltrolllord_desc",
+            });
+            if (trophy.ItemPrefab == null)
+            {
+                Jotunn.Logger.LogError("[BiomeLords] Failed to clone TrophyFrostTroll — Gammeltroll Lord trophy skipped.");
+                return;
+            }
+
+            var drop = trophy.ItemPrefab.GetComponent<ItemDrop>();
+            if (drop != null && drop.m_itemData?.m_shared != null)
+            {
+                var s = drop.m_itemData.m_shared;
+                s.m_itemType     = ItemDrop.ItemData.ItemType.Trophy;
+                s.m_maxStackSize = 1;
+                s.m_questItem    = false;
+            }
+
+            // The vanilla frost-troll trophy is already near-white (0.88 grey), so a
+            // pale tint reads as "unchanged". Go saturated glacial blue with an icy
+            // emissive glow — same body+emission treatment as the Neck Lord trophy.
+            RetintPrefab(trophy.ItemPrefab,
+                         body:     new Color(0.30f, 0.60f, 1.00f, 1f),
+                         emission: new Color(0.10f, 0.45f, 1.00f, 1f));
+            TintAndRenderIcon(trophy.ItemPrefab, drop, new Color(0.30f, 0.60f, 1.00f));
+            ApplyTrophyAura(trophy.ItemPrefab,
+                            lightColor: new Color(0.45f, 0.75f, 1.00f),
+                            scale: 1.0f);
+
+            ItemManager.Instance.AddItem(trophy);
+            Jotunn.Logger.LogInfo($"[BiomeLords] Registered trophy: {GammeltrollLordTrophy}");
         }
 
         private static void BuildFallerValkyrieLordTrophy()

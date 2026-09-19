@@ -1,6 +1,6 @@
 # BiomeLords — Lord Reference
 
-All seven Lords follow the same pattern: cloned vanilla prefab → scaled up → custom brain MonoBehaviour → boss bar. Damage is handled by `LordDamageBoostPatch`, which replaces every melee hit's damage values with the Lord's `DamageProfile × mult` (admin config, default 1.0×). Abilities live in per-Lord brain files under `Phase1B/` or `Phase1D/`.
+All eight Lords follow the same pattern: cloned vanilla prefab → scaled up → custom brain MonoBehaviour → boss bar. Damage is handled by `LordDamageBoostPatch`, which replaces every melee hit's damage values with the Lord's `DamageProfile × mult` (admin config, default 1.0×). Abilities live in per-Lord brain files under `Phase1B/` or `Phase1D/`.
 
 ---
 
@@ -438,7 +438,8 @@ runtime logic gated on the SE being active:
   animation. Only **at** the cap does the normal encumbered state engage. The inventory
   weight readout still shows your **base** capacity (e.g. 300/450 w/ Megingjord), not the
   cap — a second postfix on `InventoryGui.UpdateInventoryWeight` rewrites the HUD number;
-  the cap is communicated through this tooltip / compendium instead.
+  the cap is communicated through this tooltip / compendium instead (the tooltip reads the
+  configured cap and row count live via `BlessingTooltipPatch`, so it never drifts from the config).
 - **+2 inventory rows** (`LordConfig.FallerValkyrieExtraRows`, default 2 — 8 slots each),
   via `FeatherweightInventory`. The extra rows use the **same** slot UI as the normal grid
   (built from the same `m_elementPrefab`); `InventoryGui_Show_FeatherweightPanel` stretches
@@ -477,3 +478,69 @@ player is within `LordConfig.ValkyrieRallyRadius` (default 20 m) of the caster r
 
 The SE itself carries no stat mods and lapses after a brief `InstantWindow` (4 s); the
 20-minute cooldown is the real gate.
+
+---
+
+## Gammeltroll Lord
+
+| Field | Value |
+|---|---|
+| **Prefab** | `GammeltrollLord` (clone of `TrollFrost`, Valheim 1.0's Deep North Gammeltroll) |
+| **Biome** | Deep North (tier 8) |
+| **Scale** | 1.3× **relative** — TrollFrost ships with a 4.0 root scale, so the clone is set to `localScale * 1.3` (= 5.2), not `Vector3.one * 1.3` (which shrank it to a third of a normal Gammeltroll in the first test build) |
+| **Aura** | Glacial blue-white child Light, range 14 m (stone grey/10 m while petrified, blazing/20 m in Fimbul Fury) |
+| **Base HP** | 47 000 (Kall Fimbulbringer's three phases combined: `FrozenKing` 10 000 + `_p2` 7 000 + `_p3` 30 000) |
+| **Damage profile** | 220 blunt (vanilla TrollFrost swing, unmodified — read from the 1.0 prefab) |
+| **Brain file** | `Phase1D/GammeltrollLordBrain.cs` |
+
+Vanilla `TrollFrost` facts that shape the fight (all read from the 1.0 asset bundle):
+3 000 HP, speed 3/3, faction `DeepNorth`, **Immune to fire, Resistant to frost, Weak to
+pickaxe**, chop ignored. Attacks: `swing_l/r` 220 blunt (interval 4 s, **15 m reach**),
+`stomp_l/r` 200 blunt, `throw` 150 blunt (300 m range). It has **no CharacterDrop** — vanilla
+petrifies the corpse — so `CreatureFactory.AddDrop` builds one. Its `m_deathEffects` spawn
+`TrollFrost_Dead` (the Ember-Charge-only petrified statue); `StripDeathEffect` removes that entry
+from the clone so the Lord shatters into its VFX and drops instead of leaving a vanilla statue.
+
+### Abilities
+
+| Ability | Trigger | Effect |
+|---|---|---|
+| **Petrify** | First time HP crosses 75 %, 50 %, 25 % | Turns to stone for 8 s: rooted (`m_speed = 0` held every frame), animator frozen, renderers tinted grey, aura dulled. `GammeltrollShellPatch` cuts every incoming damage component except **pickaxe** to 10 % and zeroes push/stagger. Pickaxe passes untouched and still gets the vanilla ×1.5 Weak multiplier. State is a ZDO bool (`BiomeLords_GammeltrollPetrified`) so every peer renders the statue. |
+| **Shatter** | When Petrify lapses | `vfx_TrollFrost_Death` + ground slam; every foe (`BaseAI.IsEnemy`) within 14 m takes **90 frost** + 120 push (no attacker set, so `LordDamageBoostPatch` leaves it alone). Spawns 2 `BlobMorkMini` (Tiny Pulp), cap 4 within 20 m. |
+| **Fimbul Fury** | After the third Shatter (< 25 % HP), permanent | 1.3× speed, `MonsterAI.m_minAttackInterval` ×0.6, aura blue-white blaze. |
+
+Petrify never re-arms: three shells per fight, in order. A Lord loaded from a save with the
+ZDO flag still set shatters on its first owner tick (the shell counter restarts at 0, like
+every other brain's per-instance state).
+
+### Drops
+Trophy of the Gammeltroll Lord (`TrophyGammeltrollLord`, clone of `TrophyFrostTroll`, one per
+player), Bjorn Hide ×4–6, Barka Branch ×2–4, Dead Pulp (`OozeMork`) ×2–3, Frozen Fuel ×2–4.
+Drops are added through `AddDrop`, which skips any prefab that fails to resolve rather than
+leaving a null `m_prefab` for `CharacterDrop.GenerateDropList` to trip on.
+
+### Blessing — Fimbul Hide
+Marker SE (`SE_GammeltrollLordSpirit`), driven by `FimbulHideService.Tick()` from the
+`Player.Update` postfix:
+- **Sure-footed** — `Player.m_deepSnowSlowMax` (vanilla 0.5 → up to −50 % speed in drifts;
+  the slow is computed inline in `Character.UpdateWalking`) is set to 0 while the blessing is
+  active and restored when it lapses.
+- **Snow shedding** — every 2 s, in the Deep North only, every `WearNTear` within
+  `LordConfig.FimbulHideSnowShedRadius` (default 30 m) with `m_snowBuildup > 0` gets
+  `ChangeSnow(-0.10)`, so a full load clears in ~20 s and heavy-snow structural damage
+  (`Game.m_snowDamage`, applied once buildup hits 1.0 on an under-supported piece) never
+  starts while the player is home. `ChangeSnow` RPCs the value, so it works for pieces the
+  client doesn't own.
+
+### Forsaken Power — Petrify (`GP_Petrify`)
+Marker SE with an `InstantWindow` TTL, driven by `PetrifyService` on the absent → present
+transition (same one-shot pattern as Rootward / Valkyrie's Rally):
+- Applies **`SE_PetrifiedSkin`** (`SubEffectFactory`) with `m_ttl = LordConfig.PetrifyDuration`
+  (default 6 s): every damage type `VeryResistant` (×0.25), `m_staggerModifier = −1`,
+  `m_speedModifier = −0.6`.
+- When the timer lapses (or the skin SE disappears early) the shell **shatters**: every hostile
+  within `LordConfig.PetrifyShatterRadius` (8 m) takes `LordConfig.PetrifyShatterDamage`
+  (80 frost) with 120 push, attacker = the player so kill credit and aggro behave normally.
+
+Distinct from Bonemass' power (physical-only Resistant, no downside, no burst): Petrify is
+all-type, stronger, costs mobility, and pays out on expiry.

@@ -31,6 +31,11 @@ namespace BiomeLords.Patches
                 { "GoblinKing",   5 },
                 { "SeekerQueen",  6 },
                 { "FallenValkyrie", 7 },
+                // Tier 8 is the ceiling: nothing can push Kall above his own tier, so
+                // his three phase prefabs are listed for completeness and never rescale.
+                { "FrozenKing",    8 },
+                { "FrozenKing_p2", 8 },
+                { "FrozenKing_p3", 8 },
             };
 
         [HarmonyPostfix]

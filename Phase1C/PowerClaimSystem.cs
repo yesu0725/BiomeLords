@@ -33,6 +33,7 @@ namespace BiomeLords.Phase1C
             { "lox_lord",        GuardianPowerFactory.LoxLordGP },
             { "seeker_lord",     GuardianPowerFactory.SeekerLordGP },
             { "faller_valkyrie_lord", GuardianPowerFactory.FallerValkyrieLordGP },
+            { "gammeltroll_lord",     GuardianPowerFactory.GammeltrollLordGP },
         };
 
         /// <summary>

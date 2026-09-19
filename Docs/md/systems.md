@@ -106,13 +106,14 @@ Per-Lord **base HP** at the Lord's native tier — its identity value, matched t
 biome boss. Lord HP at spawn:
 
 ```
-targetHp = LordBaseStats.HpFor(lordId, tier)
+targetHp = LordBaseStats.HpFor(lordId, tier)          // LordStats.BaseHealth if set, else the table below
          × (TierTable.HpFor(effectiveTier) / TierTable.HpFor(nativeTier))   // progression ratio
          × LordConfig.HealthMultiplier(lordId)
 ```
 
-All 7 Lords are boss-backed, so each base equals `HpFor(nativeTier)` and this converges to
-`HpFor(effectiveTier)`:
+All 7 Lords are boss-backed, so each default base equals `HpFor(nativeTier)` and this converges to
+`HpFor(effectiveTier)`. `LordConfig.BaseHealth(lordId)` (section `LordStats.BaseHealth`, admin-only,
+server-synced) overrides the default outright — the table below is the config default:
 
 | Lord | Base HP | Note |
 |---|---|---|
@@ -123,6 +124,7 @@ All 7 Lords are boss-backed, so each base equals `HpFor(nativeTier)` and this co
 | lox_lord | 10000 | Yagluth |
 | seeker_lord | 12500 | The Queen |
 | faller_valkyrie_lord | 25000 | Fallen Valkyrie |
+| gammeltroll_lord | 47000 | Kall Fimbulbringer — `FrozenKing` 10000 + `_p2` 7000 + `_p3` 30000 |
 
 ---
 
@@ -324,6 +326,21 @@ On new activation (old ref ≠ new ref):
    the `PhantomWolf.Invulnerable` flag is set (enforced by `PhantomWolfInvulnPatch`).
 
 ---
+
+## FimbulHideService (`Phase1D/FimbulHideService.cs`)
+
+Gammeltroll Lord blessing. Ticked from `Player_Update_BiomeLordsTicks` via
+`PowerEffectsService.Tick`. Zeroes `Player.m_deepSnowSlowMax` while `SE_GammeltrollLordSpirit`
+is on the local player (restoring the captured original when it lapses) and, in the Deep North,
+sheds `0.10` snow buildup every 2 s from every `WearNTear` within
+`LordConfig.FimbulHideSnowShedRadius`. See [lords.md § Gammeltroll Lord](lords.md#gammeltroll-lord).
+
+## PetrifyService (`Phase1D/PetrifyService.cs`)
+
+Gammeltroll Lord Forsaken Power. One-shot on the `GP_Petrify` marker transition: applies
+`SE_PetrifiedSkin` for `LordConfig.PetrifyDuration`, then fires the frost shatter
+(`PetrifyShatterRadius` / `PetrifyShatterDamage`) when the timer or the skin SE lapses. Player
+death clears the pending shatter.
 
 ## HiveSightService (`Phase1D/HiveSightService.cs`)
 

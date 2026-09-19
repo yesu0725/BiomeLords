@@ -76,7 +76,7 @@ admin-only.
 to fix a single Lord.
 
 Use `LordBaseStats` for a Lord's base HP and `LordAttackProfile` (its own profile) for its
-base attack. Use `LordConfig.HealthMultiplier` / `DamageMultiplier` for admin-configurable
+base attack. Use `LordConfig.BaseHealth` / `HealthMultiplier` / `DamageMultiplier` for admin-configurable
 per-Lord tweaks, and `LordIntrinsic` for a baked per-Lord damage knob.
 
 **Why:** The shared tier curve and per-tier convergence-target profiles are the

@@ -93,6 +93,7 @@ namespace BiomeLords.Phase1B
                 case "lox_lord":       return CreatureFactory.LoxLordPrefab;
                 case "seeker_lord":    return CreatureFactory.SeekerLordPrefab;
                 case "faller_valkyrie_lord": return CreatureFactory.FallerValkyrieLordPrefab;
+                case "gammeltroll_lord":     return CreatureFactory.GammeltrollLordPrefab;
                 default:               return null;
             }
         }

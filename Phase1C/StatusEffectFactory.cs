@@ -25,6 +25,7 @@ namespace BiomeLords.Phase1C
         public const string LoxLordSpiritSE       = "SE_LoxLordSpirit";
         public const string SeekerLordSpiritSE    = "SE_SeekerLordSpirit";
         public const string FallerValkyrieLordSpiritSE = "SE_FallerValkyrieLordSpirit";
+        public const string GammeltrollLordSpiritSE    = "SE_GammeltrollLordSpirit";
 
         /// <summary>Direct references to our registered SEs.</summary>
         public static readonly Dictionary<string, StatusEffect> ByName =
@@ -80,6 +81,41 @@ namespace BiomeLords.Phase1C
             BuildLoxLordSpirit();
             BuildSeekerLordSpirit();
             BuildFallerValkyrieLordSpirit();
+            BuildGammeltrollLordSpirit();
+        }
+
+        /// <summary>
+        /// Gammeltroll Lord blessing — Fimbul Hide. A Deep North chore blessing
+        /// (marker SE — no SE_Stats fields). While active, FimbulHideService:
+        ///   • zeroes the player's deep-snow movement slow (Character.m_deepSnowSlowMax,
+        ///     vanilla 0.5 = up to −50% speed in drifts), so you wade unhindered;
+        ///   • sheds snow buildup from every building piece within
+        ///     LordConfig.FimbulHideSnowShedRadius, so heavy snow never crushes a
+        ///     roof while you are home.
+        /// </summary>
+        private static void BuildGammeltrollLordSpirit()
+        {
+            var spirit = ScriptableObject.CreateInstance<SE_Stats>();
+            spirit.name     = GammeltrollLordSpiritSE;
+            spirit.m_name    = "$se_gammeltrolllordspirit";
+            spirit.m_tooltip = "$se_gammeltrolllordspirit_tooltip";
+            spirit.m_ttl     = 0f;
+
+            spirit.m_startMessageType = MessageHud.MessageType.Center;
+            spirit.m_startMessage     = "$se_gammeltrolllordspirit_start";
+            spirit.m_stopMessageType  = MessageHud.MessageType.Center;
+            spirit.m_stopMessage      = "$se_gammeltrolllordspirit_stop";
+
+            spirit.m_startEffects = BuildEffects(new[] {
+                "vfx_lootspawn", "vfx_HitSparks", "fx_himminafl_aoe"
+            });
+            spirit.m_stopEffects  = BuildEffects(new[] { "vfx_corpse_destruction_small" });
+
+            var custom = new CustomStatusEffect(spirit, fixReference: false);
+            ItemManager.Instance.AddStatusEffect(custom);
+            ByName[GammeltrollLordSpiritSE] = spirit;
+            BlessingHashes.Add(GammeltrollLordSpiritSE.GetStableHashCode());
+            Jotunn.Logger.LogInfo($"[BiomeLords] Registered status effect: {GammeltrollLordSpiritSE}");
         }
 
         /// <summary>

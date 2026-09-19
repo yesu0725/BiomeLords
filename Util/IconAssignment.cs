@@ -28,6 +28,7 @@ namespace BiomeLords.Util
             { GuardianPowerFactory.LoxLordGP,       new[] { "ShieldWood", "ShieldBronzeBuckler", "ShieldIronTower" } }, // Bull Rush → shield
             { GuardianPowerFactory.SeekerLordGP,    new[] { "Wisplight", "Wisp", "Eitr" } },                    // Hive Sight → Wisplight
             { GuardianPowerFactory.FallerValkyrieLordGP, new[] { "Feathers" } },     // Valkyrie's Rally (overridden to Feather fall icon below)
+            { GuardianPowerFactory.GammeltrollLordGP,    new[] { "Stone", "Grausten", "BlackMarble" } },  // Petrify → stone
 
             // ---- Blessings (chores) -----
             { StatusEffectFactory.NeckLordSpiritSE,      new[] { "FishingBait", "Fish1" } },                   // Fisher's Boon
@@ -37,9 +38,11 @@ namespace BiomeLords.Util
             { StatusEffectFactory.LoxLordSpiritSE,       new[] { "CookedLoxMeat", "LoxMeat", "Barley" } },     // Hearth Master
             { StatusEffectFactory.SeekerLordSpiritSE,    new[] { "Coal", "Bronze", "Iron" } },                 // Refiner's Touch
             { StatusEffectFactory.FallerValkyrieLordSpiritSE, new[] { "Feathers" } }, // Featherweight (overridden to Feather fall icon below)
+            { StatusEffectFactory.GammeltrollLordSpiritSE,    new[] { "BjornHide", "TrollHide", "WolfPelt" } }, // Fimbul Hide
 
             // ---- Sub-effects (state indicators) -----
             { SubEffectFactory.ForestSitSE, new[] { "Sheltered", "Shelter", "Rested" } },                       // Forest Sit → Sheltered SE
+            { SubEffectFactory.PetrifiedSkinSE, new[] { "Stone", "Grausten" } },                                // Petrified Skin → stone
         };
 
         /// <summary>Run after ObjectDB is populated so item prefabs resolve.</summary>

@@ -32,11 +32,17 @@ namespace BiomeLords.Phase1B
                 Name        = "$item_lordshorn",
                 Description = "$item_lordshorn_desc",
                 CraftingStation = CraftingStations.Workbench,
+                // MINIMUM station level, not an exact one: vanilla's check is
+                // `station.GetLevel() < m_minStationLevel` -> cannot craft, so a
+                // level-1 requirement is satisfied by every Workbench upgrade.
+                MinStationLevel = 1,
                 Requirements = RecipeParser.Parse(LordConfig.HornRecipe.Value, DefaultHornRecipe, recover: false, logContext: "Lord's Horn"),
             });
 
             // Localised strings — wired via Jotunn's Localization manager so the
             // tokens above resolve in-game.
+            // Blessing / power tooltips may contain {placeholders}; BlessingTooltipPatch
+            // fills them from the live config so descriptions never drift from settings.
             LocalizationManager.Instance.AddLocalization(new Jotunn.Configs.LocalizationConfig("English")
             {
                 Translations =
@@ -60,7 +66,7 @@ namespace BiomeLords.Phase1B
                     { "piece_lordspedestal",          "Lord's Pedestal" },
                     { "piece_lordspedestal_desc",     "A gilded ceremonial stand that holds the trophy of a fallen Lord. Glows softly when erected. Place several side-by-side to form your own Hall of the Lords." },
                     { "se_necklordspirit",            "Fisher's Boon" },
-                    { "se_necklordspirit_tooltip",    "The Neck Lord's gift. Your fishing casts have a chance to spare the bait, and a chance to land a bonus fish on the catch." },
+                    { "se_necklordspirit_tooltip",    "The Neck Lord's gift. Your fishing casts have a <b>{bait_save_pct}%</b> chance to spare the bait, and a <b>{bonus_fish_pct}%</b> chance to land a bonus fish on the catch." },
                     { "se_necklordspirit_start",      "The Neck Lord's spirit settles upon your line." },
                     { "se_necklordspirit_stop",       "The Neck Lord's spirit drifts away." },
 
@@ -147,7 +153,7 @@ namespace BiomeLords.Phase1B
                     { "biomelords_lox_bellow",        "A bone-shaking bellow knocks you back!" },
                     { "biomelords_lox_bulwark",       "The Lox Lord digs in, hide hardening like stone!" },
                     { "se_loxlordspirit",             "Hearth Master" },
-                    { "se_loxlordspirit_tooltip",     "The Lox Lord's gift. Food buffs you eat last <b>+100%</b> longer." },
+                    { "se_loxlordspirit_tooltip",     "The Lox Lord's gift. Food buffs you eat last <b>+{hearth_pct}%</b> longer." },
                     { "se_loxlordspirit_start",       "The Lox Lord blesses your hearth." },
                     { "se_loxlordspirit_stop",        "The hearth's warmth fades." },
 
@@ -158,7 +164,7 @@ namespace BiomeLords.Phase1B
                     { "biomelords_summon_seeker_start","The mist hums… the hive marks you." },
                     { "biomelords_summon_seeker_end", "The hum dies away. The Seeker Lord is undone." },
                     { "se_seekerlordspirit",          "Refiner's Touch" },
-                    { "se_seekerlordspirit_tooltip",  "The Seeker Lord's gift. Smelters, Blast Furnaces, Spinning Wheels and Eitr Refineries near you have a chance to yield a bonus output." },
+                    { "se_seekerlordspirit_tooltip",  "The Seeker Lord's gift. Smelters, Blast Furnaces, Spinning Wheels and Eitr Refineries near you have a <b>{refiner_pct}%</b> chance to yield a bonus output." },
                     { "se_seekerlordspirit_start",    "The hive bends raw matter to your will." },
                     { "se_seekerlordspirit_stop",     "The hive's gift fades." },
 
@@ -169,7 +175,7 @@ namespace BiomeLords.Phase1B
                     { "biomelords_summon_fallervalkyrie_start","The ashen sky tears open… a fallen Valkyrie descends." },
                     { "biomelords_summon_fallervalkyrie_end", "The light fades from the sky. The Fallen Valkyrie Lord is slain." },
                     { "se_fallervalkyrielordspirit",         "Featherweight" },
-                    { "se_fallervalkyrielordspirit_tooltip", "The Fallen Valkyrie Lord's gift. Her wings bear your burdens: carry up to <b>1000</b> weight with <b>no encumbrance penalty</b> — walk, run and recover stamina freely until you reach the cap. Also grants <b>+2 inventory rows</b>. Switch blessings and anything in those extra rows spills into a crate at your feet." },
+                    { "se_fallervalkyrielordspirit_tooltip", "The Fallen Valkyrie Lord's gift. Her wings bear your burdens: carry up to <b>{weight_cap}</b> weight with <b>no encumbrance penalty</b> — walk, run and recover stamina freely until you reach the cap. Also grants <b>{extra_rows_text}</b>. Switch blessings and anything in those extra rows spills into a crate at your feet." },
                     { "se_fallervalkyrielordspirit_start",   "Your burdens turn weightless." },
                     { "se_fallervalkyrielordspirit_stop",    "The weight of the world returns." },
                     { "biomelords_featherweight_crate",      "Featherweight fades — your extra packs spill into a crate." },
@@ -189,10 +195,33 @@ namespace BiomeLords.Phase1B
 
                     // Valkyrie's Rally — group support burst (Fallen Valkyrie Lord).
                     { "gp_valkyrieascension",         "Valkyrie's Rally" },
-                    { "gp_valkyrieascension_tooltip", "The fallen Valkyrie answers your call to arms.\nEvery player within <b>20 m</b> — you and your kin — is restored in an instant:\n• <b>Health, Stamina and Eitr</b> filled to the brim\n• <b>Adrenaline</b> maxed, if a trinket is worn\n• A <b>max-level shield</b> bubble, as from the Staff of Protection\n• A <b>20-minute Rested</b> buff" },
+                    { "gp_valkyrieascension_tooltip", "The fallen Valkyrie answers your call to arms.\nEvery player within <b>{rally_radius} m</b> — you and your kin — is restored in an instant:\n• <b>Health, Stamina and Eitr</b> filled to the brim\n• <b>Adrenaline</b> maxed, if a trinket is worn\n• A <b>max-level shield</b> bubble, as from the Staff of Protection\n• A <b>{rally_rested} Rested</b> buff" },
                     { "gp_valkyrieascension_start",   "You raise the Valkyrie's banner." },
                     { "gp_valkyrieascension_stop",    "The banner lowers." },
                     { "gp_valkyrieascension_rallied", "The Valkyrie's grace restores you." },
+
+                    // Gammeltroll Lord (Valheim 1.0 Deep North) enemy + trophy + Fimbul Hide blessing
+                    { "enemy_gammeltrolllord",            "Gammeltroll Lord" },
+                    { "item_trophygammeltrolllord",       "Trophy of the Gammeltroll Lord" },
+                    { "item_trophygammeltrolllord_desc",  "The petrified skull of the Gammeltroll Lord, rime still crusted in its sockets. Mount it on a Lord's Pedestal to draw upon its spirit." },
+                    { "biomelords_summon_gammeltroll_start", "The drifts heave… an old stone wakes beneath the snow." },
+                    { "biomelords_summon_gammeltroll_end",   "The wind falls silent. The Gammeltroll Lord is stone once more." },
+                    { "biomelords_gammeltroll_petrify",   "The Gammeltroll Lord turns to stone — take a pickaxe to it!" },
+                    { "biomelords_gammeltroll_shatter",   "The stone shell shatters!" },
+                    { "se_gammeltrolllordspirit",         "Fimbul Hide" },
+                    { "se_gammeltrolllordspirit_tooltip", "The Gammeltroll Lord's gift. Deep snow no longer slows you — wade through the drifts at full speed. In the Deep North, every building piece within <b>{snow_shed_radius} m</b> of you sheds its snow, so heavy snow never crushes a roof while you are home." },
+                    { "se_gammeltrolllordspirit_start",   "The old troll's hide settles over your shoulders." },
+                    { "se_gammeltrolllordspirit_stop",    "The hide slips away; the drifts drag at you again." },
+
+                    // Petrify (Gammeltroll Lord)
+                    { "gp_petrify",                   "Petrify" },
+                    { "gp_petrify_tooltip",           "The old stone's patience is yours.\nOn activation your skin turns to stone for <b>{petrify_seconds} s</b>: you take <b>−75%</b> damage of every kind, cannot be staggered, and move at −60%.\nWhen the shell breaks it <b>shatters</b> — every foe within <b>{shatter_radius} m</b> takes <b>{shatter_damage}</b> frost damage and is hurled back." },
+                    { "gp_petrify_start",             "Your skin hardens to stone." },
+                    { "gp_petrify_stop",              "The stone crumbles from your skin." },
+                    { "gp_petrify_activate",          "Stone. Endure." },
+                    { "gp_petrify_shatter",           "The shell shatters outward!" },
+                    { "se_petrifiedskin",             "Petrified Skin" },
+                    { "se_petrifiedskin_tooltip",     "Stone-skinned: −75% damage taken, cannot be staggered, movement slowed. Shatters when it ends." },
 
                     { "se_forestsit",                 "Resting under a tree" },
                     { "se_forestsit_tooltip",         "Seated beneath the boughs. Stay seated long enough and the forest will grant you the Rested buff." },

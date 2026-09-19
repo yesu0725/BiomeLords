@@ -33,6 +33,7 @@ namespace BiomeLords.Util
                 { "lox_lord",       1.0f },
                 { "seeker_lord",    1.0f },
                 { "faller_valkyrie_lord", 1.0f },
+                { "gammeltroll_lord",     1.0f },
             };
 
         /// <summary>Snapshot of the original values so the console command can

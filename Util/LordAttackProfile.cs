@@ -17,7 +17,7 @@ namespace BiomeLords.Util
     ///
     /// Neck Lord and Greydwarf Lord run their vanilla creature's strongest
     /// signature attack at +20% (the creature's own 0★ damage × 1.2). Draugr
-    /// Lord through Fallen Valkyrie Lord run that same signature attack
+    /// Lord through Gammeltroll Lord run that same signature attack
     /// unmodified (×1.0) — a deliberate split agreed per-Lord rather than a
     /// flat rule across all seven. No vanilla boss values are used anywhere
     /// in this table.
@@ -41,6 +41,8 @@ namespace BiomeLords.Util
                 { "seeker_lord",    new DamageProfile { Pierce = 120f } },
                 // Fallen Valkyrie Lord <- FallenValkyrie : claw strike 160 pierce (0★), unmodified
                 { "faller_valkyrie_lord", new DamageProfile { Pierce = 160f } },
+                // Gammeltroll Lord <- TrollFrost      : swing 220 blunt (0★), unmodified (read from the 1.0 prefab)
+                { "gammeltroll_lord",     new DamageProfile { Blunt = 220f } },
             };
 
         public static bool TryGet(string lordId, out DamageProfile profile)
@@ -52,7 +54,7 @@ namespace BiomeLords.Util
         }
 
         /// <summary>
-        /// Convergence target magnitude per tier (index = tier 1..7), replacing
+        /// Convergence target magnitude per tier (index = tier 1..8), replacing
         /// the old vanilla-boss table. Each value is that tier's own Lord
         /// profile total (see Profiles above). Magnitude is stored under Blunt
         /// purely as a carrier field — Resolve() below sums Blunt+Slash+Pierce
@@ -69,11 +71,12 @@ namespace BiomeLords.Util
             new DamageProfile { Blunt = 130f },  // 5 Lox Lord
             new DamageProfile { Blunt = 120f },  // 6 Seeker Lord
             new DamageProfile { Blunt = 160f },  // 7 Fallen Valkyrie Lord
+            new DamageProfile { Blunt = 220f },  // 8 Gammeltroll Lord
         };
 
         public static bool TryGetByTier(int tier, out DamageProfile profile)
         {
-            if (tier >= 1 && tier <= 7) { profile = ByTier[tier]; return true; }
+            if (tier >= 1 && tier <= TierTable.MaxTier) { profile = ByTier[tier]; return true; }
             profile = default;
             return false;
         }

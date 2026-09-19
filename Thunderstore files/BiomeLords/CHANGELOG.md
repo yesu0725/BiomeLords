@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.13
+
+The Deep North, and configuration.
+
+- **A Lord for the Deep North: the Gammeltroll Lord.** Valheim 1.0's final biome gets its own Lord — a 1.3× glacial Gammeltroll with **47,000 base health** (Kall Fimbulbringer's three forms combined) and the frost troll's 220-damage swing. Prove yourself on 20 Gammeltrolls, Barka or Bjorn, then use the Horn at night in the Deep North. Three times in the fight it **petrifies**: rooted, frozen mid-pose, grey as stone, shrugging off 90% of everything you throw at it — except **pickaxes**, which bite as hard as ever. When the shell breaks it **shatters** in a frost burst that hurls you back and sheds a pair of Tiny Pulp; after the third shatter it enters **Fimbul Fury**. Drops its trophy plus Bjorn Hide, Barka Branch, Dead Pulp and Frozen Fuel.
+- **New Blessing — Fimbul Hide.** Deep snow no longer slows you, and in the Deep North every building piece within 30 m of you sheds its snow buildup, so heavy snow never crushes a roof while you're home. Radius is configurable.
+- **New Forsaken Power — Petrify.** Turn to stone for 6 s: −75% damage of every kind, stagger-immune, slowed. When it ends, the shell shatters for 80 frost damage and heavy knockback to everything hostile within 8 m. Duration, radius and damage are configurable.
+- **Tier 8.** The difficulty ladder now runs to the Deep North, so defeating the Gammeltroll Lord raises every lower Lord and vanilla boss to tier 8 the same way the Fallen Valkyrie Lord raised them to 7.
+- **Set each Lord's health directly.** A new `LordStats.BaseHealth` config section has one entry per Lord, defaulting to the biome boss's health the Lord was matched to (Neck Lord 500 … Fallen Valkyrie Lord 25000). Change it and the automatic tier scaling and `HealthMultiplier` build on your number instead. Admin-only and server-synced like the rest.
+- **Blessing and Forsaken Power descriptions now show your server's actual settings.** The compendium and hover text used to quote the built-in defaults — "carry up to 1000", "+2 inventory rows", "+100% longer", "20 m", "20-minute Rested" — no matter what an admin had configured. Every number in those descriptions is now read live from the config, so Featherweight's weight cap and extra rows, Hearth Master's food bonus, Refiner's Touch and Fisher's Boon chances, and Valkyrie's Rally radius and Rested duration always match what the server is running. Fisher's Boon and Refiner's Touch now state their chance instead of just "a chance".
+- **Lord's Horn crafting clarified.** The Horn requires a Workbench of level 1 *or higher* — it was never locked to a level-1 bench, but the recipe now says so explicitly in code. No change in play.
+
 ## 0.6.12
 
 Bug fix.

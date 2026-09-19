@@ -16,6 +16,7 @@ namespace BiomeLords.Phase1B
         public const string LoxLordEvent        = "biomelords_lox";
         public const string SeekerLordEvent     = "biomelords_seeker";
         public const string FallerValkyrieLordEvent = "biomelords_fallervalkyrie";
+        public const string GammeltrollLordEvent = "biomelords_gammeltroll";
 
         private static readonly Dictionary<string, string> EventByLord = new Dictionary<string, string>
         {
@@ -26,6 +27,7 @@ namespace BiomeLords.Phase1B
             { "lox_lord",       LoxLordEvent       },
             { "seeker_lord",    SeekerLordEvent    },
             { "faller_valkyrie_lord", FallerValkyrieLordEvent },
+            { "gammeltroll_lord",     GammeltrollLordEvent },
         };
 
         public static string EventNameFor(string lordId) =>
@@ -47,7 +49,25 @@ namespace BiomeLords.Phase1B
             RegisterEvent(sys, BuildLoxEvent());
             RegisterEvent(sys, BuildSeekerEvent());
             RegisterEvent(sys, BuildFallerValkyrieEvent());
+            RegisterEvent(sys, BuildGammeltrollEvent());
         }
+
+        private static RandomEvent BuildGammeltrollEvent() => new RandomEvent
+        {
+            m_name             = GammeltrollLordEvent,
+            m_enabled          = true,
+            m_random           = false,
+            m_duration         = 600f,
+            m_nearBaseOnly     = false,
+            m_pauseIfNoPlayerInArea = true,
+            m_biome            = Heightmap.Biome.DeepNorth,
+            m_startMessage     = "$biomelords_summon_gammeltroll_start",
+            m_endMessage       = "$biomelords_summon_gammeltroll_end",
+            // Mountain blizzard — a known env name; the Deep North's own storms are
+            // scene EnvSetups we can't reference by prefab name.
+            m_forceEnvironment = "SnowStorm",
+            m_forceMusic       = "boss_eikthyr",
+        };
 
         private static RandomEvent BuildFallerValkyrieEvent() => new RandomEvent
         {

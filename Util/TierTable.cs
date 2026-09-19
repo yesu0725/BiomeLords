@@ -13,6 +13,7 @@ namespace BiomeLords.Util
     ///   5 = Plains (Yagluth)
     ///   6 = Mistlands (Queen)
     ///   7 = Ashlands (Fader)
+    ///   8 = Deep North (Kall Fimbulbringer — all three phases combined)
     ///
     /// Damage scaling no longer lives here — Lords converge via LordAttackProfile
     /// and vanilla bosses scale to LordAttackProfile.TierMagnitude.
@@ -20,7 +21,7 @@ namespace BiomeLords.Util
     public static class TierTable
     {
         public const int MinTier = 1;
-        public const int MaxTier = 7;
+        public const int MaxTier = 8;
 
         private static readonly float[] HpByTier =
         {
@@ -32,6 +33,7 @@ namespace BiomeLords.Util
             10000f,  // 5 Yagluth
             12500f,  // 6 The Queen
             25000f,  // 7 Fader
+            47000f,  // 8 Kall Fimbulbringer (FrozenKing 10000 + _p2 7000 + _p3 30000)
         };
 
         public static int Clamp(int tier) => tier < MinTier ? MinTier : (tier > MaxTier ? MaxTier : tier);

@@ -37,34 +37,36 @@ you want to compile against.
 ## Deploy
 
 The `CopyToPlugins` target in `BiomeLords.csproj` runs after every build and copies the
-DLL to all three destinations automatically — no manual step:
+DLL to **one** destination — the Gale client profile **HB Test**:
 
 | Destination | Path |
 |---|---|
-| Gale client profile **TG Mods Only** (current test profile) | `$(GaleProfilePath)\BepInEx\plugins\TaegukGaming-BiomeLords` |
-| Gale client profile **HB Test** | `%APPDATA%\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords` |
-| Local dedicated server | `C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server\BepInEx\plugins\TaegukGaming-BiomeLords` |
+| Gale client profile **HB Test** (the only deploy target) | `%APPDATA%\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords` |
+
+**No other profile receives builds** — not TG Mods Only, not the dedicated server, not
+r2modman. That is deliberate (decided 2026-09-18): those profiles hold whatever build was
+last put there on purpose, so a test build can never leak into a profile someone plays on.
+If a build is ever needed elsewhere, copy it by hand.
+
+(`GaleProfilePath` — TG Mods Only — is still used for *reference assemblies* at compile
+time; that is unrelated to deployment.)
 
 The old first hop, `$(ValheimPath)\BepInEx\plugins\BiomeLords`, was dropped with 0.6.11:
 that folder no longer exists (see *Reference assemblies* above) and creating it would plant
-a stray `BepInEx\` in a vanilla install.
-
-**The dedicated-server copy fails while the server is running.** Windows refuses to
-overwrite a DLL that a process has mapped (`MSB3021 … user-mapped section open`); MSBuild
-retries ten times and then reports the build as failed, even though the compile and the
-two Gale copies succeeded. Stop the server (a plain `taskkill /PID <n>` without `/F` lets
-it save the world first), rebuild or copy by hand, restart it.
+a stray `BepInEx\` in a vanilla install. The dedicated-server hop was dropped with 0.6.13
+along with TG Mods Only; it also used to fail with `MSB3021 … user-mapped section open`
+whenever the server was running.
 
 To deploy by hand:
 
 ```powershell
 $src  = "E:\Valheim Modding\ValheimBiomeLords\Github\BiomeLords\bin\Release\netstandard2.1\BiomeLords.dll"
-$dest = "C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\TG Mods Only\BepInEx\plugins\TaegukGaming-BiomeLords\BiomeLords.dll"
+$dest = "C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords\BiomeLords.dll"
 Copy-Item $src $dest -Force
 ```
 
-Confirm every copy is the same build before testing — a stale DLL in one location is the
-classic "but I fixed that" trap:
+Confirm the deployed copy is the build you think it is — a stale DLL is the classic
+"but I fixed that" trap:
 
 ```powershell
 Get-FileHash bin\Release\netstandard2.1\BiomeLords.dll, "$dest" | Format-Table Hash, Path
@@ -76,12 +78,12 @@ Get-FileHash bin\Release\netstandard2.1\BiomeLords.dll, "$dest" | Format-Table H
 
 BepInEx log for runtime errors (per Gale profile — substitute the profile you launched):
 ```
-C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\TG Mods Only\BepInEx\LogOutput.log
+C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\LogOutput.log
 ```
 
 Key lines to look for after a fresh launch:
 ```
-[Info   :BiomeLords] BiomeLords 0.6.12 loaded. 7 Lords registered.
+[Info   :BiomeLords] BiomeLords 0.6.13 loaded. 7 Lords registered.
 [Info   :BiomeLords] Harmony: N patch classes applied, M skipped.
 ```
 
@@ -174,9 +176,14 @@ window, so server sync would fight the player. See
 | `General` | `GlobalLordDefeats` | `false` | When `false`, each player's Lord defeat progression is tracked independently via player unique keys. When `true`, any Lord kill on the server advances scaling for every player via world global keys. |
 | `General` | `EnableKillTracking` | `true` | Master switch for kill tracking. Disable to freeze counters without losing existing data. |
 | `General` | `DebugLogging` | `false` | Verbose scaling + kill tracking logs. Spammy — leave off in normal play. |
+| `LordStats.BaseHealth` | `<lordId>` | boss HP (500 … 47000) | Per-Lord base HP at its native tier, before progression scaling. Defaults to the biome boss's HP (Neck Lord 500 … Gammeltroll Lord 47000); `<= 0` falls back to the default. |
 | `LordStats.HealthMultiplier` | `<lordId>` | `1.0` | Per-Lord HP multiplier on top of the scaled base HP. |
 | `LordStats.DamageMultiplier` | `<lordId>` | `1.0` | Per-Lord damage multiplier on top of the resolved attack profile (× intrinsic). |
 | `KillRequirements` | `<lordId>` | varies | Kills needed before the Horn can summon that Lord. |
+| `Blessings` | `FimbulHideSnowShedRadius` | `30` | Fimbul Hide: radius in which building pieces shed snow buildup (Deep North only). 0 disables shedding. |
+| `ForsakenPowers` | `PetrifyDuration` | `6` | Petrify: seconds the stone skin lasts before it shatters. |
+| `ForsakenPowers` | `PetrifyShatterRadius` | `8` | Petrify: shatter burst radius in metres. |
+| `ForsakenPowers` | `PetrifyShatterDamage` | `80` | Petrify: frost damage dealt by the shatter. |
 | `LordsHorn` | `Recipe` | `NeckTail:5,TrophyDeer:1,Bronze:1` | Comma-separated `ItemPrefab:Amount` pairs for crafting the Lord's Horn at the Workbench. Restart required to take effect. |
 | `Hall` | `Recipe` | `Stone:40,FineWood:20,Flint:10,SurtlingCore:3` | Comma-separated `ItemPrefab:Amount` pairs for building the Hall of the Lords. Restart required to take effect. |
 | `UI` *(local)* | `StorageUiOffsetColumns` | `0` | Chest/storage window horizontal offset from its vanilla spot, in inventory cell widths (+ = right). Rewritten on drag. |
@@ -238,7 +245,7 @@ biomelords_tame_time 20
 
 - [ ] Build succeeds with 0 errors
 - [ ] DLL deployed to the Gale **HB Test** profile (automatic on build)
-- [ ] LogOutput.log shows all 7 Lords registered and 0 patch errors
+- [ ] LogOutput.log shows all 8 Lords registered and 0 patch errors
 
 ### Lord-defeat scaling
 

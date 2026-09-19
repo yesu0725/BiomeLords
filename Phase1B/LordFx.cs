@@ -135,6 +135,25 @@ namespace BiomeLords.Phase1B
                 BurstTimed = new[] { "vfx_meteor_explosion" },
                 SparkRing  = 16,
             };
+
+            // Gammeltroll Lord — Deep North frost / stone theme. The 1.0 frost-troll
+            // effects resolve where present; anything missing is skipped by FxLibrary.
+            Summon["gammeltroll_lord"] = new FxSet
+            {
+                Burst = new[] { "fx_summon_start", "vfx_prespawn", "vfx_trollsnow_groundslam",
+                                "vfx_frosttroll_hit", "fx_himminafl_aoe", "vfx_troll_death" },
+                BurstTimed = new[] { "FenringIceNova_aoe" },
+                SparkRing  = 10,
+                SparkR     = 2.5f,
+            };
+            Death["gammeltroll_lord"] = new FxSet
+            {
+                Burst = new[] { "vfx_TrollFrost_Death", "vfx_troll_death", "vfx_trollsnow_groundslam",
+                                "vfx_corpse_destruction_small", "fx_himminafl_aoe",
+                                "fx_redlightning_burst" },
+                SparkRing  = 16,
+                SparkR     = 2.5f,
+            };
         }
 
         public static void PlaySummon(string lordId, Vector3 pos) => Play(Summon, lordId, pos);

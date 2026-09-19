@@ -48,6 +48,8 @@ namespace BiomeLords.Phase1C
                   ("seeker_lord", StatusEffectFactory.SeekerLordSpiritSE, GuardianPowerFactory.SeekerLordGP) },
                 { TrophyFactory.FallerValkyrieLordTrophy,
                   ("faller_valkyrie_lord", StatusEffectFactory.FallerValkyrieLordSpiritSE, GuardianPowerFactory.FallerValkyrieLordGP) },
+                { TrophyFactory.GammeltrollLordTrophy,
+                  ("gammeltroll_lord", StatusEffectFactory.GammeltrollLordSpiritSE, GuardianPowerFactory.GammeltrollLordGP) },
             };
 
         public static bool TryGetGuardianPower(string attached, out string gpName)

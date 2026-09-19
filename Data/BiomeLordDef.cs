@@ -27,7 +27,7 @@ namespace BiomeLords.Data
         /// <summary>Vanilla prefab name this Lord is cloned from.</summary>
         public string BasePrefab;
 
-        /// <summary>Biome tier (1=Meadows … 7=Ashlands). Used by tier-based scaling.</summary>
+        /// <summary>Biome tier (1=Meadows … 8=Deep North). Used by tier-based scaling.</summary>
         public int Tier;
 
         public BiomeLordDef(string id, string display, string basePrefab, string biome,
@@ -44,7 +44,7 @@ namespace BiomeLords.Data
     }
 
     /// <summary>
-    /// The 7 primary Biome Lords (Phase 1).
+    /// The 8 Biome Lords — one per biome, Meadows through the Deep North.
     /// KillTargets use vanilla prefab names — Character.m_name is a localization token,
     /// so we match on prefab name via gameObject.name (stripped of "(Clone)").
     /// </summary>
@@ -60,6 +60,8 @@ namespace BiomeLords.Data
             new BiomeLordDef("lox_lord",        "Lox Lord",             "Lox",             "Plains",      5, 10, "Lox"),
             new BiomeLordDef("seeker_lord",     "Seeker Lord",          "Seeker",          "Mistlands",   6, 20, "Seeker", "SeekerBrute", "SeekerBrood"),
             new BiomeLordDef("faller_valkyrie_lord", "Fallen Valkyrie Lord", "FallenValkyrie", "AshLands", 7, 25, "Charred_Melee", "Charred_Archer", "Charred_Mage"),
+            // Valheim 1.0 Deep North. TrollFrost = Gammeltroll, Barka = frost treant, Bjorn = bear.
+            new BiomeLordDef("gammeltroll_lord", "Gammeltroll Lord",     "TrollFrost",      "DeepNorth",   8, 20, "TrollFrost", "Barka", "Bjorn", "Bjorn_sleeping"),
         };
 
         public static BiomeLordDef ById(string id) => All.Find(l => l.Id == id);

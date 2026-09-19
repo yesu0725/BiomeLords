@@ -98,6 +98,17 @@ tier exceeds the boss's native tier:
 `effectiveTier == nativeTier`, and the patch returns early — vanilla bosses are
 completely unmodified until the first Lord is killed.
 
+### `GammeltrollShellPatch` (`Patches/GammeltrollShellPatch.cs`)
+
+**Target:** `Character.Damage` prefix
+**What it does:** While `GammeltrollLordBrain.IsPetrified` (a replicated ZDO bool, so it is
+correct on whichever peer processes the hit), every damage component except `m_pickaxe` is
+multiplied by `ShellDamageFactor` (0.10) and `m_pushForce` / `m_staggerMultiplier` are zeroed.
+Pickaxe is left alone on purpose — vanilla `TrollFrost` is Weak to it, so picks still land at
+×1.5 after `ApplyResistance`. Same mitigate-don't-cancel shape as `LoxLordShieldPatch`.
+**Gotcha:** `HitData.DamageTypes.GetTotalDamage()` *does* include chop and pickaxe, which is
+why leaving `m_pickaxe` untouched is enough for the "break it with a pick" mechanic.
+
 ### `NeckLordBlockPatch` (`Patches/NeckLordBlockPatch.cs`)
 
 **Target:** `Character.Damage` prefix  
@@ -200,6 +211,29 @@ in sync if the absorb rate changes.
 ---
 
 ## Blessing effect patches
+
+### `BlessingTooltipPatch` — `StatusEffect_GetTooltipString_BlessingValues` + `SE_Stats_GetTooltipString_BlessingValues` (`Patches/BlessingTooltipPatch.cs`)
+
+**Targets:** `StatusEffect.GetTooltipString` postfix **and** `SE_Stats.GetTooltipString` postfix  
+**What it does:** Keeps blessing / Forsaken Power descriptions in sync with the config. The
+English tooltip strings in `ItemFactory` hold placeholders (`{weight_cap}`, `{extra_rows_text}`,
+`{hearth_pct}`, `{refiner_pct}`, `{bait_save_pct}`, `{bonus_fish_pct}`, `{rally_radius}`,
+`{rally_rested}`) instead of numbers. For SEs whose `m_tooltip` token belongs to us
+(`StatusEffectFactory.ByName` ∪ `GuardianPowerFactory.ByName`), the postfix runs
+`Localization.instance.Localize()` on the token itself and `BlessingTooltipValues.Fill()`
+substitutes the live `LordConfig` values. Every vanilla display path — compendium
+`TextsDialog.AddActiveEffects`, HUD hover, `ItemStand` guardian-power hover — calls
+`GetTooltipString()` first and `Localize()` after, and `Localize()` on already-localised text
+is a no-op, so the filled string survives.  
+**Why both targets:** `GetTooltipString` is virtual and `SE_Stats` (every SE we register)
+overrides it; Harmony patches a concrete method, so patching only the base would miss
+every one of ours.  
+**Why at display time:** SEMan clones the SE per player (`Object.Instantiate`), so rewriting
+`m_tooltip` on the registered object on `SettingChanged` would not reach live instances, and
+server-synced values would lag. Reading the config on every call costs a few string
+replaces and needs no bookkeeping.  
+**Adding a placeholder:** add the token to `Fill()` and use it in the string. Unknown
+`{tokens}` are left as-is, so a typo shows up literally in-game rather than crashing.
 
 ### `FisherBoonPatch` (`Patches/FisherBoonPatch.cs`)
 

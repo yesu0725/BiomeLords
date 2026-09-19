@@ -42,6 +42,8 @@ namespace BiomeLords.Phase1D
             HiveSightService.Tick();
             ValkyrieRallyService.Tick();
             RootwardService.Tick();
+            PetrifyService.Tick();
+            FimbulHideService.Tick();
         }
 
         // ---- Fenring Howl of the Pack --------------------------------------

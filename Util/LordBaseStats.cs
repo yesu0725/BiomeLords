@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using BiomeLords.Config;
 
 namespace BiomeLords.Util
 {
@@ -8,7 +9,10 @@ namespace BiomeLords.Util
     /// is layered on top in SummonService.ApplyScaling using the TierTable curve
     /// as a ratio, exactly like the vanilla-boss scaling.
     ///
-    /// All 7 Lords are boss-backed, so this equals TierTable.HpFor(lordTier).
+    /// All 8 Lords are boss-backed, so this equals TierTable.HpFor(lordTier).
+    ///
+    /// Admins can override the baseline per Lord via LordStats.BaseHealth
+    /// (LordConfig.BaseHealth); the table below only supplies the defaults.
     /// </summary>
     public static class LordBaseStats
     {
@@ -22,14 +26,24 @@ namespace BiomeLords.Util
                 { "lox_lord",      10000f },  // Yagluth
                 { "seeker_lord",   12500f },  // The Queen
                 { "faller_valkyrie_lord", 25000f },  // Fallen Valkyrie
+                { "gammeltroll_lord",     47000f },  // Kall Fimbulbringer, all phases
             };
 
-        /// <summary>Base HP for a Lord, falling back to the tier curve if unmapped.</summary>
-        public static float HpFor(string lordId, int tier)
+        /// <summary>Design default base HP for a Lord, falling back to the tier curve if unmapped.
+        /// Used as the config default — read HpFor() for the live value.</summary>
+        public static float DefaultHpFor(string lordId, int tier)
         {
             if (!string.IsNullOrEmpty(lordId) && BaseHp.TryGetValue(lordId, out var hp))
                 return hp;
             return TierTable.HpFor(tier);
+        }
+
+        /// <summary>Base HP for a Lord: the admin-configured LordStats.BaseHealth
+        /// value when set (> 0), otherwise the design default.</summary>
+        public static float HpFor(string lordId, int tier)
+        {
+            float cfg = LordConfig.BaseHealth(lordId);
+            return cfg > 0f ? cfg : DefaultHpFor(lordId, tier);
         }
     }
 }

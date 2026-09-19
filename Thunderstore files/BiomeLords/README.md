@@ -4,7 +4,7 @@ Every biome hides a Lord — a towering, named version of one of its creatures, 
 
 ## What this mod adds
 
-- **One Lord per biome.** Meadows, Black Forest, Swamp, Mountain, Plains, Mistlands, and Ashlands each have their own Lord, scaled up and far tougher than anything else that biome throws at you.
+- **One Lord per biome.** Meadows, Black Forest, Swamp, Mountain, Plains, Mistlands, Ashlands, and the Deep North each have their own Lord, scaled up and far tougher than anything else that biome throws at you.
 - **A relic that summons them.** Craft the **Lord's Horn**, hunt enough of that biome's regular creatures to prove yourself, then use the Horn at night in that biome to call the Lord out.
 - **A trophy worth keeping.** Defeat a Lord and it drops a unique trophy. Mount it on a **Lord's Pedestal** to receive that Lord's **Blessing** — a permanent passive perk for as long as the trophy stays on display.
 - **A power you carry into battle.** Landing the killing blow on a Lord also grants its **Forsaken Power**, usable like any other Forsaken Power from a fallen boss.

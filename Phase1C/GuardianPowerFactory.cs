@@ -19,6 +19,7 @@ namespace BiomeLords.Phase1C
         public const string LoxLordGP       = "GP_BullRush";
         public const string SeekerLordGP    = "GP_HiveSense";
         public const string FallerValkyrieLordGP = "GP_ValkyrieAscension";
+        public const string GammeltrollLordGP    = "GP_Petrify";
 
         public const float ActiveDuration = 600f;   // 10 min — claim is hard-gated by Lord-kill
         public const float Cooldown       = 1200f;  // 20 min — matches vanilla GPs
@@ -42,6 +43,9 @@ namespace BiomeLords.Phase1C
             // Valkyrie's Rally fires once on activation (ValkyrieRallyService),
             // so it only needs a brief marker window — not the full 10 min.
             Register(FallerValkyrieLordGP, "gp_valkyrieascension", ConfigureValkyrieAscension, InstantWindow);
+            // Petrify is a one-shot too: PetrifyService applies the stone-skin
+            // sub-effect on activation and fires the shatter when it lapses.
+            Register(GammeltrollLordGP,    "gp_petrify",           ConfigurePetrify, InstantWindow);
         }
 
         private static void Register(string seName, string locKey, System.Action<SE_Stats> configure,
@@ -147,6 +151,15 @@ namespace BiomeLords.Phase1C
             // restores HP / Stamina / Eitr (and max Adrenaline if a trinket is
             // equipped), wraps a max-level StaffShield bubble, and grants a 20-min
             // Rested buff to every player within range of the caster.
+        }
+
+        private static void ConfigurePetrify(SE_Stats se)
+        {
+            // Marker only. On activation PetrifyService applies SE_PetrifiedSkin
+            // (SubEffectFactory) for LordConfig.PetrifyDuration seconds — very
+            // resistant to every damage type, stagger-immune, slowed — and when
+            // the shell lapses it shatters: frost damage + knockback to every
+            // hostile within LordConfig.PetrifyShatterRadius.
         }
 
         // ---- FX & icon helpers ---------------------------------------------

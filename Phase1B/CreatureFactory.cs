@@ -20,6 +20,7 @@ namespace BiomeLords.Phase1B
         public const string LoxLordPrefab               = "LoxLord";
         public const string SeekerLordPrefab            = "SeekerLord";
         public const string FallerValkyrieLordPrefab    = "FallerValkyrieLord";
+        public const string GammeltrollLordPrefab       = "GammeltrollLord";
 
         /// <summary>Not a Lord — the Neck the Neck Lord's Tide Caller summons.
         /// Kept out of <see cref="RegisteredLords"/>. See BuildNeckLordMinion.</summary>
@@ -54,6 +55,7 @@ namespace BiomeLords.Phase1B
             BuildLoxLord();
             BuildSeekerLord();
             BuildFallerValkyrieLord();
+            BuildGammeltrollLord();
         }
 
         private static void BuildNeckLord()
@@ -571,6 +573,104 @@ namespace BiomeLords.Phase1B
                                      "faller_valkyrie_lord");
 
             Jotunn.Logger.LogInfo($"[BiomeLords] Registered creature: {FallerValkyrieLordPrefab}");
+        }
+
+        private static void BuildGammeltrollLord()
+        {
+            // Valheim 1.0 Deep North: "TrollFrost" is the Gammeltroll prefab.
+            var clone = PrefabManager.Instance.CreateClonedPrefab(GammeltrollLordPrefab, "TrollFrost");
+            if (clone == null)
+            {
+                Jotunn.Logger.LogError("[BiomeLords] Failed to clone TrollFrost prefab — is this Valheim 1.0?");
+                return;
+            }
+
+            // 1.3x — RELATIVE to the prefab's own root scale. Unlike every other Lord
+            // base, TrollFrost ships with a 4.0 root scale (the model is authored at
+            // troll size), so an absolute `Vector3.one * 1.3f` would shrink it to a
+            // third of a normal Gammeltroll. 4.0 x 1.3 = 5.2.
+            clone.transform.localScale = clone.transform.localScale * 1.3f;
+
+            // Glacial blue-white aura. The Petrify shell swaps it to dull stone grey.
+            // Light.range is in world metres regardless of transform scale, so the
+            // default 5 m point light would sit inside a ~12 m troll — widen it.
+            AttachLordAura(clone, lightColor: new Color(0.70f, 0.88f, 1.00f));
+            var auraLight = clone.transform.Find("BiomeLords_Aura")?.GetComponent<Light>();
+            if (auraLight != null) { auraLight.range = 14f; auraLight.intensity = 3.0f; }
+
+            var humanoid = clone.GetComponent<Humanoid>();
+            if (humanoid != null)
+            {
+                humanoid.m_health = 47000f;        // matched to Kall Fimbulbringer (all three phases)
+                humanoid.m_name   = "$enemy_gammeltrolllord";
+            }
+            var character = clone.GetComponent<Character>();
+            if (character != null)
+            {
+                character.m_boss = true;
+                // Vanilla TrollFrost's death effects spawn "TrollFrost_Dead" — the
+                // petrified statue that needs an Ember Charge to harvest. A Lord
+                // shatters instead (LordFx death set + CharacterDrop), so strip the
+                // statue and keep only the sfx/vfx entries.
+                StripDeathEffect(character, "TrollFrost_Dead");
+            }
+
+            // TrollFrost has no CharacterDrop of its own (vanilla petrifies the
+            // corpse instead), so add one rather than clearing an existing list.
+            var drop = clone.GetComponent<CharacterDrop>() ?? clone.AddComponent<CharacterDrop>();
+            drop.m_drops.Clear();
+            AddDrop(drop, Phase1C.TrophyFactory.GammeltrollLordTrophy, 1, 1, onePerPlayer: true, fallback: "TrophyFrostTroll");
+            AddDrop(drop, "BjornHide",   4, 6);
+            AddDrop(drop, "BarkaBranch", 2, 4);
+            AddDrop(drop, "OozeMork",    2, 3);
+            AddDrop(drop, "FrozenFuel",  2, 4);
+
+            clone.AddComponent<Phase1D.GammeltrollLordBrain>();
+
+            var custom = new CustomCreature(clone, fixReference: true);
+            CreatureManager.Instance.AddCreature(custom);
+
+            RegisteredLords.Register(GammeltrollLordPrefab,
+                                     Phase1B.EventFactory.GammeltrollLordEvent,
+                                     "gammeltroll_lord");
+
+            Jotunn.Logger.LogInfo($"[BiomeLords] Registered creature: {GammeltrollLordPrefab}");
+        }
+
+        /// <summary>Remove every entry of <paramref name="prefabName"/> from a
+        /// creature's death EffectList (the list array is replaced, so the vanilla
+        /// prefab's own list is untouched).</summary>
+        private static void StripDeathEffect(Character character, string prefabName)
+        {
+            var list = character.m_deathEffects?.m_effectPrefabs;
+            if (list == null) return;
+            var kept = new System.Collections.Generic.List<EffectList.EffectData>(list.Length);
+            foreach (var e in list)
+            {
+                if (e?.m_prefab != null && e.m_prefab.name == prefabName) continue;
+                kept.Add(e);
+            }
+            if (kept.Count == list.Length) return;
+            character.m_deathEffects = new EffectList { m_effectPrefabs = kept.ToArray() };
+            Jotunn.Logger.LogInfo($"[BiomeLords] Stripped death effect '{prefabName}' from {character.gameObject.name}.");
+        }
+
+        /// <summary>Add a drop only if the prefab resolves — a null m_prefab would
+        /// throw inside vanilla CharacterDrop.GenerateDropList on death.</summary>
+        private static void AddDrop(CharacterDrop drop, string prefabName, int min, int max,
+                                    bool onePerPlayer = false, string fallback = null)
+        {
+            var prefab = PrefabManager.Instance.GetPrefab(prefabName)
+                      ?? (fallback != null ? PrefabManager.Instance.GetPrefab(fallback) : null);
+            if (prefab == null)
+            {
+                Jotunn.Logger.LogWarning($"[BiomeLords] Drop prefab '{prefabName}' not found — skipped.");
+                return;
+            }
+            drop.m_drops.Add(new CharacterDrop.Drop
+            {
+                m_prefab = prefab, m_amountMin = min, m_amountMax = max, m_chance = 1f, m_onePerPlayer = onePerPlayer,
+            });
         }
 
         /// <summary>Collect non-null effect prefabs from an EffectList into dst.</summary>

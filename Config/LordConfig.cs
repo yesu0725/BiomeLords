@@ -29,6 +29,10 @@ namespace BiomeLords.Config
         public static ConfigEntry<int>    FallerValkyrieExtraRows;
         public static ConfigEntry<float>  ValkyrieRallyRadius;
         public static ConfigEntry<float>  ValkyrieRallyRestedSeconds;
+        public static ConfigEntry<float>  FimbulHideSnowShedRadius;
+        public static ConfigEntry<float>  PetrifyDuration;
+        public static ConfigEntry<float>  PetrifyShatterRadius;
+        public static ConfigEntry<float>  PetrifyShatterDamage;
         public static ConfigEntry<string> HallRecipe;
         public static ConfigEntry<string> HornRecipe;
         public static ConfigEntry<float>  StorageUiOffsetColumns;
@@ -36,6 +40,8 @@ namespace BiomeLords.Config
 
         private static readonly Dictionary<string, ConfigEntry<int>>   _killReq =
             new Dictionary<string, ConfigEntry<int>>();
+        private static readonly Dictionary<string, ConfigEntry<float>> _baseHp =
+            new Dictionary<string, ConfigEntry<float>>();
         private static readonly Dictionary<string, ConfigEntry<float>> _hpMult =
             new Dictionary<string, ConfigEntry<float>>();
         private static readonly Dictionary<string, ConfigEntry<float>> _dmgMult =
@@ -94,6 +100,19 @@ namespace BiomeLords.Config
                       "(8 slots per row). When you switch to a different blessing, items left in " +
                       "these extra rows are moved into a CargoCrate dropped at your feet."));
 
+            FimbulHideSnowShedRadius = cfg.Bind("Blessings", "FimbulHideSnowShedRadius", 30f,
+                Admin("Fimbul Hide (Gammeltroll Lord): radius, in metres, within which your building " +
+                      "pieces shed their snow buildup while the blessing is active (Deep North only). " +
+                      "0 disables the shedding; the deep-snow walking immunity is unaffected."));
+
+            PetrifyDuration = cfg.Bind("ForsakenPowers", "PetrifyDuration", 6f,
+                Admin("Petrify (Gammeltroll Lord): seconds the stone skin lasts before it shatters. " +
+                      "While it lasts you take -75% damage of every type, cannot be staggered, and move at -60%."));
+            PetrifyShatterRadius = cfg.Bind("ForsakenPowers", "PetrifyShatterRadius", 8f,
+                Admin("Petrify: radius, in metres, of the shatter burst when the stone skin breaks."));
+            PetrifyShatterDamage = cfg.Bind("ForsakenPowers", "PetrifyShatterDamage", 80f,
+                Admin("Petrify: frost damage dealt to every hostile inside the shatter radius."));
+
             ValkyrieRallyRadius = cfg.Bind("ForsakenPowers", "ValkyrieRallyRadius", 20f,
                 Admin("Valkyrie's Rally (Fallen Valkyrie Lord): radius, in metres, around the caster " +
                       "within which all players are fully restored. 20 = 20 m."));
@@ -136,9 +155,15 @@ namespace BiomeLords.Config
                     Admin($"Kills required before the Lord's Horn can summon the {lord.DisplayName}. " +
                           $"Targets: {string.Join(", ", lord.KillTargets)}"));
 
+                float defaultHp = LordBaseStats.DefaultHpFor(lord.Id, lord.Tier);
+                _baseHp[lord.Id] = cfg.Bind("LordStats.BaseHealth", lord.Id, defaultHp,
+                    Admin($"Base HP of the {lord.DisplayName} at its native tier ({lord.Tier}), " +
+                          $"before progression scaling and HealthMultiplier. Default {defaultHp:0} = " +
+                          $"the {lord.Biome} vanilla boss's HP. Values <= 0 fall back to the default."));
+
                 _hpMult[lord.Id] = cfg.Bind("LordStats.HealthMultiplier", lord.Id, 1.0f,
-                    Admin($"Multiplier applied to the {lord.DisplayName}'s tier-baseline HP. " +
-                          $"1.0 = default. 2.0 = twice as tough. 0.5 = half as tough."));
+                    Admin($"Multiplier applied on top of the {lord.DisplayName}'s BaseHealth " +
+                          $"(after progression scaling). 1.0 = default. 2.0 = twice as tough. 0.5 = half as tough."));
 
                 _dmgMult[lord.Id] = cfg.Bind("LordStats.DamageMultiplier", lord.Id, 1.0f,
                     Admin($"Multiplier applied to the {lord.DisplayName}'s tier-baseline damage. " +
@@ -147,6 +172,8 @@ namespace BiomeLords.Config
         }
 
         public static int   KillRequirement(string lordId)    => _killReq.TryGetValue(lordId,  out var e) ? e.Value : 0;
+        /// <summary>Configured base HP for a Lord, or 0 when unset / non-positive (caller falls back).</summary>
+        public static float BaseHealth(string lordId)         => _baseHp.TryGetValue(lordId,   out var e) && e.Value > 0f ? e.Value : 0f;
         public static float HealthMultiplier(string lordId)   => _hpMult.TryGetValue(lordId,   out var e) ? e.Value : 1f;
         public static float DamageMultiplier(string lordId)   => _dmgMult.TryGetValue(lordId,  out var e) ? e.Value : 1f;
     }

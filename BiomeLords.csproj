@@ -80,17 +80,12 @@
     <DedicatedServerPluginPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server\BepInEx\plugins\TaegukGaming-BiomeLords</DedicatedServerPluginPath>
   </PropertyGroup>
 
+  <!-- Deploy: the Gale "HB Test" profile ONLY. Every other profile (TG Mods Only,
+       the dedicated server, r2modman) is left alone on purpose - copy by hand if a
+       build is ever needed there. -->
   <Target Name="CopyToPlugins" AfterTargets="Build">
-    <MakeDir Directories="$(GaleTestPluginPath)" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GaleTestPluginPath)" />
-    <Message Text="Copied $(TargetFileName) to Gale TG Mods Only profile" Importance="high" />
-
     <MakeDir Directories="$(GalePluginPath)" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GalePluginPath)" />
     <Message Text="Copied $(TargetFileName) to Gale HB Test profile" Importance="high" />
-
-    <MakeDir Directories="$(DedicatedServerPluginPath)" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(DedicatedServerPluginPath)" />
-    <Message Text="Copied $(TargetFileName) to Valheim dedicated server plugins" Importance="high" />
   </Target>
 </Project>
