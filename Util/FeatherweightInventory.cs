@@ -11,25 +11,46 @@ namespace BiomeLords.Util
     /// Featherweight (Fallen Valkyrie Lord blessing) inventory expansion.
     ///
     /// While the blessing is active the player's inventory gains
-    /// LordConfig.FallerValkyrieExtraRows extra rows (8 slots each). Valheim does
-    /// NOT persist inventory dimensions (only item grid positions), so:
+    /// LordConfig.FallerValkyrieExtraRows extra rows (8 slots each), stacked BELOW
+    /// whatever base grid the player already has. Valheim does NOT persist inventory
+    /// dimensions (only item grid positions), so:
     ///   • On load, InventoryExpandLoadPatch pre-grows the player inventory (to a
-    ///     safe ceiling) BEFORE items are read, so saved items in the extra rows
-    ///     land in their slots instead of being compacted away — or destroyed if
-    ///     the base grid is full (Inventory.AddItem during load).
+    ///     safe ceiling) BEFORE items are read, so m_height agrees with where the
+    ///     saved extra-row items actually sit. (Under 1.0 the load itself preserves
+    ///     their grid positions either way — Inventory.Load passes
+    ///     skipValidPositionCheck: true — so the pre-grow is consistency, not
+    ///     rescue; what would otherwise destroy them is the DropInvalidItems call
+    ///     later in the same spawn. See FeatherweightInventorySizePatch.)
     ///   • On spawn, BlessingPersistencePatch re-applies the saved blessing and
     ///     calls Reconcile(), which sets the final height (expanded if Featherweight
     ///     is active, base otherwise) and crates any items left beyond it.
     ///   • On a deliberate blessing switch, Collapse() moves the extra-row items
     ///     into a CargoCrate dropped at the player's feet, mirroring how a broken
     ///     cart/ship spills its storage (Container.DropAllItems).
+    ///
+    /// <b>Valheim 1.0 purchased rows.</b> Vanilla now sells extra inventory rows at
+    /// Haldor: the count lives in the player unique key <c>invrows</c>
+    /// (Player.InventoryRowsKey, 4..9) and Player.SetInventorySize applies it — on
+    /// every spawn, on every purchase and from the <c>inventorysize</c> console
+    /// command — by setting the grid height to exactly that count and then calling
+    /// Humanoid.DropInvalidItems, which throws every item beyond it on the ground.
+    /// The base height is therefore no longer a constant: <see cref="BaseHeight"/>
+    /// reads the player's purchased count (floored at the vanilla 4, or 5 under
+    /// ComfyQuickSlots) and Featherweight's rows sit below THOSE, so buying a row
+    /// simply moves the boundary down one row with no item shuffling. See
+    /// FeatherweightInventorySizePatch for how the vanilla resize is intercepted so
+    /// it can never drop the Featherweight rows on the floor.
     /// </summary>
     public static class FeatherweightInventory
     {
-        /// <summary>Vanilla player inventory grid width and base (un-blessed) height:
-        /// 8 wide × 4 tall (Humanoid).</summary>
+        /// <summary>Vanilla player inventory grid width and default (nothing bought,
+        /// un-blessed) height: 8 wide × 4 tall (Humanoid).</summary>
         public const int BaseWidth     = 8;
         public const int VanillaHeight = 4;
+
+        /// <summary>Largest row count vanilla will ever set on the player grid —
+        /// Player.SetInventorySize clamps the purchased <c>invrows</c> to this.</summary>
+        public const int VanillaMaxRows = 9;
 
         /// <summary>ComfyQuickSlots plugin GUID. When that mod is installed it forces
         /// the player inventory to 5 rows and claims grid row index 4 (the 5th row)
@@ -72,25 +93,69 @@ namespace BiomeLords.Util
             }
         }
 
-        private static int _baseHeight = -1;
+        private static int _minBaseHeight = -1;
 
         /// <summary>True if ComfyQuickSlots is loaded (cached on first query).</summary>
         public static bool ComfyQuickSlotsLoaded =>
-            BaseHeight == VanillaHeight + 1;
+            MinBaseHeight == VanillaHeight + 1;
 
-        /// <summary>Base player-inventory height with no Featherweight rows: the vanilla
-        /// 4, or 5 when ComfyQuickSlots owns a 5th (armor/quickslot) row.</summary>
-        public static int BaseHeight
+        /// <summary>Smallest base height the player grid can have: the vanilla 4, or 5
+        /// when ComfyQuickSlots owns a 5th (armor/quickslot) row. The real base is
+        /// <see cref="BaseHeight"/>, which also counts rows bought from Haldor.</summary>
+        public static int MinBaseHeight
         {
             get
             {
-                if (_baseHeight < 0)
-                    _baseHeight = BepInEx.Bootstrap.Chainloader.PluginInfos
+                if (_minBaseHeight < 0)
+                    _minBaseHeight = BepInEx.Bootstrap.Chainloader.PluginInfos
                         .ContainsKey(ComfyQuickSlotsGuid)
                         ? VanillaHeight + 1
                         : VanillaHeight;
-                return _baseHeight;
+                return _minBaseHeight;
             }
+        }
+
+        // Purchased-row cache. Player.TryGetUniqueKeyValue walks and splits every
+        // unique key on each call, and BaseHeight is consulted from the capacity
+        // prefixes that run per item per frame during auto-pickup, so the value is
+        // cached per Player instance. The only writers of `invrows` are
+        // Player.SetInventorySize (which always ends in DropInvalidItems — patched to
+        // refresh this) and Player.Load (followed by OnSpawned — also patched).
+        private static Player _baseHeightPlayer;
+        private static int    _baseHeightCached = -1;
+
+        /// <summary>Forget the cached purchased-row count so the next
+        /// <see cref="BaseHeight"/> query re-reads the player's <c>invrows</c> key.</summary>
+        public static void InvalidateBaseHeight()
+        {
+            _baseHeightPlayer = null;
+            _baseHeightCached = -1;
+        }
+
+        /// <summary>Rows the player has bought from Haldor (the vanilla <c>invrows</c>
+        /// unique key), clamped exactly as Player.SetInventorySize clamps it. A player
+        /// who has never spawned under 1.0 has no key yet — vanilla treats that as 4.</summary>
+        public static int PurchasedRows(Player p)
+        {
+            if (p != null &&
+                p.TryGetUniqueKeyValue(Player.InventoryRowsKey, out var raw) &&
+                int.TryParse(raw, out var rows))
+                return Mathf.Clamp(rows, 0, VanillaMaxRows);
+            return VanillaHeight;
+        }
+
+        /// <summary>Player-inventory height with no Featherweight rows: the rows
+        /// vanilla itself wants — the purchased count, floored at
+        /// <see cref="MinBaseHeight"/>. Featherweight rows start at this grid y.</summary>
+        public static int BaseHeight(Player p)
+        {
+            if (p == null) return MinBaseHeight;
+            if (!ReferenceEquals(p, _baseHeightPlayer) || _baseHeightCached < 0)
+            {
+                _baseHeightCached = Mathf.Max(MinBaseHeight, PurchasedRows(p));
+                _baseHeightPlayer = p;
+            }
+            return _baseHeightCached;
         }
 
         private static int _seHash;
@@ -103,11 +168,15 @@ namespace BiomeLords.Util
                 ? 0
                 : Mathf.Max(0, LordConfig.FallerValkyrieExtraRows?.Value ?? 0);
 
-        public static int ExpandedHeight => BaseHeight + ExtraRows;
+        public static int ExpandedHeight(Player p) => BaseHeight(p) + ExtraRows;
 
-        /// <summary>Height used by the load patch — generous enough that lowering
-        /// the ExtraRows config between sessions never strands saved items at load.</summary>
-        public static int LoadCeiling => BaseHeight + Mathf.Max(ExtraRows, 4);
+        /// <summary>Height used by the load patch. Items are read before the player's
+        /// unique keys and custom data (Player.Load order), so neither the purchased
+        /// row count nor the blessing is known yet — assume the vanilla maximum, and
+        /// be generous with the extra rows so lowering the ExtraRows config between
+        /// sessions never strands saved items at load. Reconcile trims it right after.</summary>
+        public static int LoadCeiling =>
+            Mathf.Max(VanillaMaxRows, MinBaseHeight) + Mathf.Max(ExtraRows, 4);
 
         public static int SeHash
         {
@@ -141,8 +210,8 @@ namespace BiomeLords.Util
 
         /// <summary>Pre-grow an inventory to the load ceiling (only ever raises).
         /// Called from the Inventory.Load prefix before items are read. Grows even
-        /// when ExtraRows is 0 so items saved in extra rows under a previous config
-        /// are still loaded (Reconcile then crates them back to the player).</summary>
+        /// when ExtraRows is 0 so the height still covers items saved in extra rows
+        /// under a previous config (Reconcile then crates them back to the player).</summary>
         public static void GrowForLoad(Inventory inv)
         {
             if (inv == null) return;
@@ -176,14 +245,15 @@ namespace BiomeLords.Util
         {
             if (inv == null || IncompatibleSlotModLoaded) return;
 
-            int target = ExpandedHeight;
-            // Cheap path first: already tall enough (the overwhelmingly common case, and
-            // these patches sit on per-frame auto-pickup checks). Skips the owner and
-            // status-effect lookups entirely.
-            if (HeightRef(inv) >= target) return;
-
             var p = Player.m_localPlayer;
             if (p == null || p.GetInventory() != inv) return;
+
+            int target = ExpandedHeight(p);
+            // Cheap path first: already tall enough (the overwhelmingly common case, and
+            // these patches sit on per-frame auto-pickup checks). BaseHeight is cached,
+            // so this is an int compare; the status-effect lookup is skipped entirely.
+            if (HeightRef(inv) >= target) return;
+
             if (!HasBlessing(p)) return;
 
             if (LordConfig.DebugLogging.Value)
@@ -228,7 +298,7 @@ namespace BiomeLords.Util
 
             int height = inv.GetHeight();
             int width  = inv.GetWidth();
-            int first  = BaseHeight;
+            int first  = BaseHeight(p);
             if (height <= first) return none;
 
             if (topFirst)
@@ -247,18 +317,27 @@ namespace BiomeLords.Util
         }
 
         /// <summary>Set the inventory to its correct height for the player's current
-        /// blessing state: expanded while Featherweight is active, base otherwise.
-        /// Any items beyond the target height are crated.</summary>
+        /// blessing state: expanded while Featherweight is active, base (vanilla's own
+        /// purchased count) otherwise. Any items beyond the target height are crated.
+        /// Re-reads the purchased count first, since this runs right after the paths
+        /// that change it.</summary>
         public static void Reconcile(Player p)
         {
             if (p == null) return;
-            int target = HasBlessing(p) && ExtraRows > 0 ? ExpandedHeight : BaseHeight;
+            InvalidateBaseHeight();
+            int target = HasBlessing(p) && ExtraRows > 0 ? ExpandedHeight(p) : BaseHeight(p);
             SetHeight(p, target);
         }
 
         /// <summary>Collapse to base height (used when switching away from
-        /// Featherweight) — extra-row items spill into a CargoCrate.</summary>
-        public static void Collapse(Player p) => SetHeight(p, BaseHeight);
+        /// Featherweight) — extra-row items spill into a CargoCrate. Rows bought from
+        /// Haldor are part of the base and are never collapsed.</summary>
+        public static void Collapse(Player p)
+        {
+            if (p == null) return;
+            InvalidateBaseHeight();
+            SetHeight(p, BaseHeight(p));
+        }
 
         /// <summary>Core: crate any items sitting at or beyond <paramref name="target"/>,
         /// then set the inventory height. Raising the height never crates anything.</summary>

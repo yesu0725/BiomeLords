@@ -150,6 +150,16 @@ prints is a load-time failure you have just avoided.
 | `ItemStand.GetAttachedItem()` | returns `int` hash, was `string` name | `PedestalInteractPatch`, `BlessingSystem.ResolveAttachedName` |
 | `SEMan.AddStatusEffect(...)` | `+ short variant` | every blessing/power grant (rebuild) |
 | `Character.Message(...)` | `+ bool log` | `PowerEffectsService` and others (rebuild) |
+| `Player.SetInventorySize(int)` / `invrows` unique key / `Humanoid.DropInvalidItems` | **new feature** — purchasable Haldor inventory rows; the grid is reset to the bought count and everything beyond it is ground-dropped, on every spawn and purchase | `FeatherweightInventorySizePatch` (new), `FeatherweightInventory.BaseHeight`, `BlessingPersistencePatch` (postfix → prefix), `FeatherweightInventoryUiPatch` — fixed in 0.6.14, see [systems.md](systems.md#purchased-rows-are-the-baseline-valheim-10) |
+| `InventoryGui.SetInventorySize(int)` | **new** — vanilla's own player-panel resize for those rows | `FeatherweightInventoryUiPatch` now calls it instead of sizing the panel itself |
+
+> **A new vanilla feature is the update risk the target checker cannot see.** Every entry above
+> except the last two was a renamed or re-signatured member, which
+> `Docs/tools/verify_patch_targets.py` catches. The purchasable rows broke Featherweight while
+> every patch target still resolved and the build was clean, because vanilla started doing
+> something new to state the mod also manages. After an update, read the patch notes for
+> features that touch what the mod touches — the inventory grid, status effects, item stands,
+> world events — and not just the diff of method signatures.
 | `Terminal.ConsoleCommand` ctor | `+ bool onlyAdmin` (13 args) | **Jotunn**, not us — see below |
 
 **Jotunn.** Jotunn 2.29.2's `CommandManager` looks up a 12-argument `ConsoleCommand`
@@ -318,6 +328,20 @@ biomelords_intrinsic  (lists active tuning state)
 - [ ] **Switch → crate** — switching to another blessing drops a CargoCrate at your feet with the extra-row items
 - [ ] **Switch → multiple crates** — with all 16 extra slots full, switching spawns enough crates for everything (nothing left on the ground)
 - [ ] **No speed / fall buff** — movement speed and fall-damage immunity are gone
+
+#### Featherweight × purchasable Haldor rows (Valheim 1.0) — added in 0.6.14
+
+Buy rows from Haldor first (or set them with the `inventorysize` console command, which routes
+through the same `Player.SetInventorySize`). `invrows` is per **character**, so use one that has
+bought rows for these.
+
+- [ ] **Rows survive login, blessed** — with Featherweight active and items in the extra rows, log out and back in: the items are **still in the extra rows**, and nothing is lying on the ground where you spawned. This is the headline 0.6.14 bug
+- [ ] **Buying a row while blessed** — with items in the extra rows, buy a row from Haldor: the grid grows by one row, nothing is dropped at your feet, no crate spawns, and the items are where you left them (shifted from the first Featherweight row into the last bought row, same column)
+- [ ] **Bought rows are never crated** — on a different blessing (or none) with bought rows holding items, log in: no CargoCrate, no ground drop, and the bought rows are still there. Then switch blessings *away* from Featherweight: only the Featherweight rows crate
+- [ ] **They add up** — with 2 rows bought and Featherweight active, the grid is 4 + 2 + 2 = 8 rows, and `inventorysize` with no argument reports 8
+- [ ] **Panel frames every row** — the backdrop covers the bought rows *and* the Featherweight rows, with no short frame or empty strip; check both blessed and un-blessed, and after a purchase without relogging
+- [ ] **Un-blessed is untouched vanilla** — with no blessing, `inventoryclean` and a fresh login behave exactly as they do without the mod (the `DropInvalidItems` prefix must bow out)
+- [ ] **Lowered config** — drop `FallerValkyrieExtraRows` to 0 with items still in the extra rows, then log in: the items arrive in a **CargoCrate** at your feet, never on the ground
 - [ ] **No green VFX** — using/claiming a Forsaken Power, placing a Lord trophy, and drawing a blessing show NO green effects
 - [ ] **Trophy VFX** — mounting a Lord trophy plays the non-green golden ceremony at the altar
 
@@ -421,6 +445,8 @@ python generate_lord_handbook.py
 | `Minimap.AddPin` compile error | `Splatform.dll` not referenced; newer overload uses `PlatformUserID` | Call `AddPin` via reflection, select smallest-arity overload |
 | `PatchAll` aborts mid-way | One bad target kills everything | Use per-class patching loop with try/catch (already in Plugin.Awake) |
 | `Patch class … failed: Patching exception in method null` | Explicit `new[] { typeof(...) }` array no longer matches any overload | See *Surviving a Valheim update* — extend the array |
+| Connecting to a server fails with Jotunn's mod-compatibility window listing BiomeLords under *Additional Mods Loaded* | The server does not have BiomeLords (or has no Jotunn at all). Expected: the mod is `EveryoneMustHaveMod` | Install BiomeLords server-side, or connect to a server that has it — see [systems.md](systems.md#network-compatibility-joining-a-server-without-the-mod) |
+| Same window, but naming a version instead | `VersionStrictness.Minor` — the server and client differ in major or minor (0.6.x ↔ 0.7.x). Two different 0.6.x builds are allowed | Match major.minor on both sides |
 | `Patch class … failed: Ambiguous match` | Vanilla gained an overload; patch has no arg list | `TargetMethods()` over all overloads, or add the arg list |
 | `Patch class … failed: IL Compile Error` | `Prefix`/`Postfix` parameter named after a renamed vanilla parameter | Rename to match (`verify_patch_targets.py` catches this offline) |
 | `MissingMethodException` at runtime through mod code | Called vanilla method gained a parameter; DLL built against old assembly | Rebuild — no code change |

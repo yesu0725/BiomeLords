@@ -271,6 +271,29 @@ the conversion table.
 The Featherweight blessing (`SE_FallerValkyrieLordSpirit`) carries **no** `SE_Stats`
 modifiers — both halves are implemented by the patches below.
 
+**Base height is not a constant (Valheim 1.0).** Vanilla now sells extra inventory rows at
+Haldor. The bought count is the player unique key `invrows` (`Player.InventoryRowsKey`,
+4..9) and `Player.SetInventorySize(rows)` applies it — on every spawn (`Player.OnSpawned`),
+on every purchase (`StoreGui.OnBuyItem`) and from the `inventorysize` console command:
+
+```csharp
+rows = Mathf.Clamp(rows, 0, 9);
+m_inventory.SetHeight(rows);              // grid becomes EXACTLY the bought rows
+AddUniqueKeyValue("invrows", rows);
+InventoryGui.instance.SetInventorySize(rows);
+DropInvalidItems();                       // Humanoid: every item with y >= rows → ground
+```
+
+`FeatherweightInventory.BaseHeight(Player)` is therefore the player's purchased count
+floored at `MinBaseHeight` (4, or 5 under ComfyQuickSlots), cached per `Player` instance
+(`TryGetUniqueKeyValue` splits every unique key on each call, and the capacity prefixes run
+per item per frame). Featherweight rows always sit **below** the purchased rows, so buying a
+row just moves the boundary down one: nothing is shuffled or lost. Every height path below
+(`Reconcile`, `Collapse`, `EnsureExpanded`, `FindExtraRowSlot`, the panel resize) is
+expressed against `BaseHeight(p)`, never a literal 4. `LoadCeiling` is
+`max(9, MinBaseHeight) + max(ExtraRows, 4)` because at `Inventory.Load` time neither the
+unique keys nor `m_customData` have been read yet (`Player.Load` order).
+
 ### `Player_GetMaxCarryWeight_Featherweight` (`Patches/FeatherweightEncumbrancePatch.cs`)
 
 **Target:** `Player.GetMaxCarryWeight` postfix  
@@ -302,24 +325,38 @@ Valheim 1.0 added `Load(ZPackage, bool)` beside `Load(ZPackage)`, so a name-only
 (`Player`, `Container`, `ZDOMan`) uses the single-argument one, but hooking both costs
 nothing and doesn't bet on which one a future patch or another mod routes through.  
 **What it does:** Valheim saves item grid positions but **not** inventory dimensions, so the
-player inventory always reloads at 8×4. This prefix detects the player inventory (name
-`"Inventory"` **or** `"ComfyQuickSlotsInventory"`, width 8 — see CQS note below) and
-pre-grows it to a safe ceiling **before** items are read, so items saved in Featherweight's
-extra rows land in their slots instead of being compacted into the base grid — or
-**destroyed** if the base grid is full (`Inventory.AddItem`). Height is then finalised on
-spawn.  
+player inventory always reloads at 8×4 while items saved in Featherweight's rows arrive with
+`y ≥ 4`. This prefix detects the player inventory (name `"Inventory"` **or**
+`"ComfyQuickSlotsInventory"`, width 8 — see CQS note below) and pre-grows it to a safe
+ceiling **before** items are read, so `m_height` agrees with where those items sit. Height is
+then finalised on spawn.  
+**What it is *not*, as of 1.0:** this is not what keeps the extra-row items alive.
+`Inventory.Load` adds each item via `AddItem(int prefabHash, ItemData)`, whose
+`skipValidPositionCheck` defaults to **true**, and the bounds test it reaches is
+`y >= m_height && !skipValidPositionCheck` (`Inventory.cs:43`) — an out-of-grid row is
+accepted verbatim, so nothing is compacted or destroyed at load time. The items are destroyed
+later in the same spawn, by the `DropInvalidItems` call inside `Player.SetInventorySize`;
+`Humanoid_DropInvalidItems_Featherweight` is what actually rescues them. The pre-grow is kept
+because it makes the height truthful for the window between `Load` and `OnSpawned`, and
+because it costs nothing if that `skipValidPositionCheck` default ever flips back.  
 **Incompatible mods:** no-ops entirely (`FeatherweightInventory.GrowForLoad` returns
 immediately) when ExtraSlots or AzuExtendedPlayerInventory is loaded — see
 [systems.md § Incompatible slot-expansion mods](systems.md#incompatible-slot-expansion-mods-extraslots-azuextendedplayerinventory).
 
 ### `Player_OnSpawned_BlessingPersistence` (`Patches/BlessingPersistencePatch.cs`)
 
-**Target:** `Player.OnSpawned` postfix (local player)  
-**What it does:** Re-applies the persisted active blessing — stored in
+**Target:** `Player.OnSpawned` prefix **and** postfix (local player)  
+**What it does:** The **prefix** re-applies the persisted active blessing — stored in
 `Player.m_customData["biomelords.blessing"]` by `BlessingSystem` — from the SE registry
-(no pedestal charge consumed), so **all** blessings now survive logout and death. Then calls
-`FeatherweightInventory.Reconcile` to set the final inventory height (expanded if
-Featherweight is active, base otherwise), crating any items left beyond it.  
+(no pedestal charge consumed), so **all** blessings survive logout and death. It also
+invalidates the purchased-row cache (fresh `Player`, freshly loaded unique keys). The
+**postfix** calls `FeatherweightInventory.Reconcile` to set the final inventory height
+(expanded if Featherweight is active, base otherwise), crating any items left beyond it.  
+**Why the SE goes in a prefix:** since 1.0 the vanilla `OnSpawned` body itself calls
+`Player.SetInventorySize(invrows)` → `DropInvalidItems()`. `Humanoid_DropInvalidItems_Featherweight`
+(below) rescues the Featherweight rows from that drop, but it can only know the rows are
+wanted if the SE is already present — status effects are not saved with the character. With
+the SE applied in a postfix (as before 1.0) the rows were thrown on the ground before we ran.  
 **Crate logic:** Switching away from Featherweight (`BlessingSystem.RemoveOtherBlessings`)
 collapses the extra rows and spills their contents into one or more `CargoCrate`s at the
 player's feet, mirroring `Container.DropAllItems(m_destroyedLootPrefab)`. The prefab is
@@ -333,6 +370,25 @@ is only a last resort if the CargoCrate prefab can't be found at all.
 no-op when ExtraSlots or AzuExtendedPlayerInventory is loaded, so BiomeLords never resizes the
 grid or crates items sitting in rows that actually belong to the other mod. See
 [systems.md § Incompatible slot-expansion mods](systems.md#incompatible-slot-expansion-mods-extraslots-azuextendedplayerinventory).
+
+### `Humanoid_DropInvalidItems_Featherweight` (`Patches/FeatherweightInventorySizePatch.cs`)
+
+**Target:** `Humanoid.DropInvalidItems` prefix, `Priority.First`, local player only  
+**What it does:** This is the destructive step at the end of vanilla's
+`Player.SetInventorySize` (see the section intro), and it is also what the `inventoryclean`
+console command calls. Left alone it was fatal: on login the load patch had just restored
+the Featherweight rows and their items, vanilla shrank the grid back to the bought count and
+threw everything in the extra rows onto the floor — before our `OnSpawned` postfix ran. Buying
+a row while blessed did the same in Haldor's camp.  
+The prefix invalidates the purchased-row cache (the key was written one line earlier), then —
+only if the blessing is active, or vanilla just set a height below `BaseHeight(p)` (the CQS
+5th row) — runs `FeatherweightInventory.Reconcile`, which sets the height to
+purchased + extra rows and **crates** anything genuinely beyond that (only possible when
+`ExtraRows` was lowered between sessions). By the time vanilla scans, nothing is out of
+bounds. An un-blessed player on a plain grid is left to vanilla entirely.  
+**Gotcha:** wrapped in try/catch so a failure can never block the vanilla call.  
+**Incompatible mods:** `Reconcile` funnels through `SetHeight`, which no-ops when ExtraSlots or
+AzuExtendedPlayerInventory is loaded.
 
 ### `FeatherweightCapacityPatches` (`Patches/FeatherweightCapacityPatch.cs`)
 
@@ -417,32 +473,39 @@ mod-agnostic safety net: it runs after *any* prefix that replaced the search, wh
 plugin load order.
 
 **Safety.** Both postfixes act only when the slot-finder already came back empty-handed, and
-`FindExtraRowSlot` scans `y` over `BaseHeight .. m_height` only — rows that exist solely
+`FindExtraRowSlot` scans `y` over `BaseHeight(p) .. m_height` only — rows that exist solely
 because Featherweight is active. It never returns a base-grid slot, so another mod's reserved
 row is never at risk (CQS's armor/quickslot row is `y = 4`, below the `BaseHeight` of 5 that
-CQS's presence sets). With the blessing inactive the scan range is empty and both are no-ops,
+CQS's presence sets), and rows bought from Haldor are left to vanilla's own slot-finder. With the blessing inactive the scan range is empty and both are no-ops,
 as they are for container inventories and when an incompatible slot mod is loaded.
 
 ### `InventoryGui_Show_FeatherweightPanel` (`Patches/FeatherweightInventoryUiPatch.cs`)
 
 **Target:** `InventoryGui.Show` postfix  
-**What it does:** Stretches the player panel so the extra Featherweight rows sit inside the
-normal frame. Height delta = `extraRows × m_playerGrid.m_elementSpace`
-(`extraRows = inventory height − FeatherweightInventory.BaseHeight`, where `BaseHeight` is
-CQS-aware: 4 vanilla / 5 under CQS).
+**What it does:** Sizes the player panel so the extra Featherweight rows sit inside the
+normal frame — by calling vanilla's **own** routine, `InventoryGui.SetInventorySize(rows)`,
+with the grid's true height (`Inventory.GetHeight()`, purchased + Featherweight rows).
+Vanilla added that routine in 1.0 for the Haldor rows (`m_player.sizeDelta.y =
+m_playerHeight + (rows − 4) × m_invGridHeight`, from a baseline captured in `Awake`), but
+only ever calls it with the *purchased* count from `Player.SetInventorySize`, so on open the
+panel frames the bought rows and not ours. Re-running it with the full height on every
+`Show` makes purchased and Featherweight rows look identical, and it is idempotent when no
+Featherweight rows are active. The slots themselves need no work — `InventoryGrid` builds
+every cell from the same `m_elementPrefab` and auto-resizes the grid root.
 
-`GrowDownward` stretches `m_player` and its backdrop image downward with the **top** edge
-pinned (pivot-aware via `rt.pivot.y`), so the extra rows are framed. The slots themselves need
-no work — `InventoryGrid` builds every cell from the same `m_elementPrefab` and auto-resizes
-the grid root. **Skipped under CQS**, where the player backdrop is CQS's own `"ExtInvGrid"`
-image (re-sized every grid refresh by CQS, clobbering anything set here);
+**Why not our own resize:** the pre-1.0 implementation cached `m_player.sizeDelta.y` on the
+first open as the "base" and stretched from there by `(height − 4)` rows. Under 1.0 vanilla
+has already stretched the panel for purchased rows before the first open, so that cache was
+wrong whenever the player had bought a row and the purchased rows were counted twice.
+
+**Skipped under CQS**, where the player backdrop is CQS's own `"ExtInvGrid"` image (re-sized
+every grid refresh by CQS, clobbering anything set here);
 `InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop` handles that backdrop instead.
 
 **Scope:** this patch owns the **player** panel only. Keeping the chest window clear of the
 extra rows is a separate, mod-agnostic concern — see
 `InventoryGui_Show_StorageWindowPosition` below.  
-**Gotcha:** Fully defensive (try/catch, null-checks) and uses a string-based `GetComponent`
-to find the backdrop without referencing `UnityEngine.UI`. If the panel hierarchy differs it
+**Gotcha:** Fully defensive (try/catch, null-checks). If the panel hierarchy differs it
 degrades to "rows extend slightly past the frame" rather than throwing.  
 **Incompatible mods:** returns immediately (no panel/backdrop changes at all) when
 ExtraSlots or AzuExtendedPlayerInventory is loaded, since those mods already grow the player

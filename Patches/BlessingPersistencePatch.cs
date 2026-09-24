@@ -12,18 +12,33 @@ namespace BiomeLords.Patches
     /// BlessingSystem; here we read it back and re-add the SE from the registry
     /// WITHOUT consuming any pedestal charges.
     ///
-    /// Also reconciles the Featherweight inventory rows: by spawn time the load
-    /// patch has pre-grown the inventory to a safe ceiling, so we set the final
-    /// height (expanded if Featherweight is active, base otherwise) and crate any
-    /// items left beyond it.
+    /// The SE is re-applied in a PREFIX, not a postfix, because of what vanilla
+    /// does inside Player.OnSpawned itself since Valheim 1.0: it calls
+    /// Player.SetInventorySize with the player's purchased row count, which sets the
+    /// grid height to exactly that and then drops every item beyond it on the
+    /// ground (Humanoid.DropInvalidItems). FeatherweightInventorySizePatch
+    /// intercepts that drop and re-asserts the Featherweight rows first — but it
+    /// can only know the blessing is active if the SE is already present, and
+    /// status effects are not saved with the character. Re-applying the SE before
+    /// the vanilla body runs is what lets the extra rows survive the vanilla resize.
+    ///
+    /// The postfix then reconciles the Featherweight inventory rows: by spawn time
+    /// the load patch has pre-grown the inventory to a safe ceiling, so we set the
+    /// final height (expanded if Featherweight is active, base otherwise) and crate
+    /// any items left beyond it. Normally the DropInvalidItems interception has
+    /// already done this; the postfix is the safety net if another mod skipped it.
     /// </summary>
     [HarmonyPatch(typeof(Player), nameof(Player.OnSpawned))]
     public static class Player_OnSpawned_BlessingPersistence
     {
-        [HarmonyPostfix]
-        public static void Postfix(Player __instance)
+        [HarmonyPrefix]
+        public static void Prefix(Player __instance)
         {
             if (__instance != Player.m_localPlayer) return;
+
+            // Fresh Player instance / freshly loaded unique keys — drop any stale
+            // purchased-row cache before vanilla or we read the height.
+            FeatherweightInventory.InvalidateBaseHeight();
 
             var seName = BlessingSystem.GetActiveBlessing(__instance);
             if (!string.IsNullOrEmpty(seName) &&
@@ -37,6 +52,12 @@ namespace BiomeLords.Patches
                         Jotunn.Logger.LogInfo($"[BiomeLords] Re-applied persisted blessing {seName} on spawn.");
                 }
             }
+        }
+
+        [HarmonyPostfix]
+        public static void Postfix(Player __instance)
+        {
+            if (__instance != Player.m_localPlayer) return;
 
             // Match inventory height to blessing state (collapses extras if the
             // blessing is no longer Featherweight).

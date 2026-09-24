@@ -468,7 +468,9 @@ Handles the pedestal → player blessing flow:
 **survives logout and death** — `Player_OnSpawned_BlessingPersistence` re-applies it from the
 SE registry on every spawn (no pedestal charge consumed). A blessing only changes when the
 player applies a different one. Switching away from Featherweight first collapses its extra
-inventory rows (see below).
+inventory rows (see below). The re-apply is a **prefix** on `Player.OnSpawned`, not a postfix,
+because the vanilla body of that method resets the inventory height — see
+[Purchased rows](#purchased-rows-are-the-baseline-valheim-10).
 
 ---
 
@@ -483,15 +485,66 @@ Drives the Fallen Valkyrie Lord blessing's two mechanics (both gated on
   crouch-walk, stamina drain, dodge-lock or encumbered animation. The HUD weight readout is
   rewritten to show the player's **base** capacity, not the cap
   (`InventoryGui_UpdateInventoryWeight_Featherweight`).
-- **+`FallerValkyrieExtraRows` inventory rows** (default 2). Valheim doesn't persist inventory
-  dimensions, so: `Inventory_Load_FeatherweightExpand` pre-grows the player inventory before
-  items load (preventing extra-row items being compacted/destroyed); the spawn re-apply calls
-  `Reconcile()` to set the final height; `InventoryGui_Show_FeatherweightPanel` stretches the
-  window backdrop to wrap the rows, and the chest panel is kept clear of them by the separate
+- **+`FallerValkyrieExtraRows` inventory rows** (default 2), stacked **below** whatever base
+  grid the player already has — see [Purchased rows](#purchased-rows-are-the-baseline-valheim-10).
+  Valheim doesn't persist inventory dimensions, so: `Inventory_Load_FeatherweightExpand`
+  pre-grows the player inventory before items load (keeping `m_height` truthful);
+  `Humanoid_DropInvalidItems_Featherweight` re-asserts the rows in front of vanilla's own
+  row reset, which is what keeps the items; the spawn re-apply calls `Reconcile()` to set the
+  final height; `InventoryGui_Show_FeatherweightPanel` hands the window sizing to vanilla's
+  `InventoryGui.SetInventorySize`, and the chest panel is kept clear of the rows by the separate
   [storage window placement](#storage-window-placement) offset. Switching away spills the extra
   rows into one or more `CargoCrate`s (`Collapse()` — multiple default crates, never an
   over-sized one, since a Container rebuilds from prefab size on reload). On death the tombstone
   copies the inventory size, so nothing is lost.
+
+#### Purchased rows are the baseline (Valheim 1.0)
+
+Vanilla 1.0 sells extra inventory rows at Haldor, so **the base height is no longer a
+constant**. The bought count lives in the player unique key `invrows`
+(`Player.InventoryRowsKey`, clamped 4..9) and `Player.SetInventorySize(rows)` applies it — on
+every spawn from inside `Player.OnSpawned`, on every purchase from `StoreGui.OnBuyItem`, and
+from the `inventorysize` console command:
+
+```csharp
+rows = Mathf.Clamp(rows, 0, 9);
+m_inventory.SetHeight(rows);              // grid becomes EXACTLY the bought rows
+AddUniqueKeyValue("invrows", rows);
+InventoryGui.instance.SetInventorySize(rows);
+DropInvalidItems();                       // Humanoid: every item with y >= rows → ground
+```
+
+Three consequences shape the design, all of them live before 0.6.14:
+
+1. That `DropInvalidItems` **throws the Featherweight rows on the floor** — on every login, and
+   again on every purchase. It runs inside the vanilla `OnSpawned` body, so a postfix is too
+   late; `Player_OnSpawned_BlessingPersistence` re-applies the blessing SE in a **prefix** so
+   that `Humanoid_DropInvalidItems_Featherweight` can tell the rows are wanted. (Status effects
+   are not saved with the character, so without that prefix there is nothing to detect.)
+2. A hard-coded base of 4 makes the mod **strip rows the player paid for**: `Reconcile` on spawn
+   would set the height to 4 for a player on any other blessing and crate the bought rows'
+   contents, and with Featherweight active the bought rows and blessing rows overlapped instead
+   of adding up.
+3. The inventory window is already stretched by vanilla for the bought rows before our first
+   `InventoryGui.Show` postfix, so any independently cached "base" panel height **double-counts**
+   them.
+
+So `FeatherweightInventory.BaseHeight(Player)` is `max(MinBaseHeight, invrows)`, where
+`MinBaseHeight` is 4 (or 5 when ComfyQuickSlots owns a 5th row), and Featherweight's rows sit
+below it. Buying a row simply moves the boundary down one — an item in the first Featherweight
+row becomes an item in the last bought row, same slot, nothing shuffled and nothing dropped.
+
+Two implementation notes worth keeping in mind when touching this:
+
+- **`BaseHeight` is cached per `Player` instance.** `Player.TryGetUniqueKeyValue` walks and
+  splits every unique key on each call, and `BaseHeight` is read from the capacity prefixes that
+  run per item per frame during auto-pickup. Anything that can change `invrows` must call
+  `InvalidateBaseHeight()` — the two paths that do are the `OnSpawned` prefix and the
+  `DropInvalidItems` prefix (vanilla writes the key one line before calling it).
+- **`LoadCeiling` cannot consult `invrows`.** `Player.Load` reads the inventory *before* the
+  unique keys and `m_customData`, so at `Inventory.Load` time neither the purchased count nor
+  the active blessing is known. It therefore assumes the vanilla maximum:
+  `max(9, MinBaseHeight) + max(ExtraRows, 4)`. `Reconcile` trims it moments later.
 
 #### The height is an invariant, not a one-shot write
 
@@ -511,6 +564,21 @@ capacity entry point via `FeatherweightInventory.EnsureExpanded`, which **only e
 
 **When adding any new inventory-height logic, treat the height as something to re-assert on
 read, not to set once.**
+
+#### Loading the character without BiomeLords
+
+Nothing stops a player loading a Featherweight character on a profile that doesn't have the mod
+(uninstall, a second Gale/r2modman profile, single-player). Multiplayer is covered — the mod is
+`EveryoneMustHaveMod`, so the join is refused (see
+[Network compatibility](#network-compatibility-joining-a-server-without-the-mod)) — but a local
+world is not, and there is no hook to add since the mod isn't loaded.
+
+What happens then, traced through 1.0: `Inventory.Load` keeps the saved `y ≥ 4` positions
+(`skipValidPositionCheck` defaults to true), so the items exist but sit outside the grid;
+`Player.OnSpawned` then calls `SetInventorySize(invrows)` → `DropInvalidItems()`, which **drops
+them on the ground** where the character spawns. They are not destroyed, so a player who notices
+can pick them back up — and lost to despawn if they don't. The wiki tells players to empty the
+extra rows before uninstalling; there is nothing to do on the code side.
 
 ### Capacity is not reachability
 
@@ -533,7 +601,7 @@ rows 0-4 filled. `FeatherweightCapacityPatches` alone could never have fixed thi
 already doing its job correctly.
 
 `FeatherweightEmptySlotPatches` supplies the missing half via
-`FeatherweightInventory.FindExtraRowSlot`, which scans `y` over `BaseHeight .. m_height`
+`FeatherweightInventory.FindExtraRowSlot`, which scans `y` over `BaseHeight(p) .. m_height`
 **only** — never the base grid, so no other mod's reserved row can be handed out. See
 [patches.md](patches.md#featherweightemptyslotpatches-patchesfeatherweightemptyslotpatchcs).
 
@@ -703,3 +771,22 @@ Runs on Lord death:
 - Calls `Player.SetGuardianPower(gpName)` on the killing player
 - Shows a HUD message
 - Ends the world event via `RandEventSystem.Instance.ResetEvent()`
+
+---
+
+## Network compatibility: joining a server without the mod
+
+`Plugin` is marked `[NetworkCompatibility(CompatibilityLevel.EveryoneMustHaveMod,
+VersionStrictness.Minor)]`, which makes `ModModule.IsNeededOnServer()` and `IsNeededOnClient()`
+both true, so Jotunn refuses any mismatched connection before the player spawns. Two paths,
+both ending in `ConnectionStatus.ErrorVersion`:
+
+| Server | Who refuses, and where | Log line |
+|---|---|---|
+| Fully vanilla (no Jotunn) | The **client**, in Jotunn's `ZNet.SendPeerInfo` prefix: the server never answered `RPC_Jotunn_ReceiveVersionData`, so `LastServerVersionData` is invalid and a mandatory mod is loaded → `Disconnect` is invoked and peer info is never sent | `Jötunn is not installed on the server. Client has mandatory mods, cancelling connection` |
+| Has Jotunn, not BiomeLords | The **server**, in `RPC_Jotunn_ReceiveVersionData` / `ZNet.RPC_PeerInfo`: `CompareVersionData` → `FindAdditionalMods` finds a client module that `IsNeededOnServer` with no server counterpart → `Error(ErrorVersion)` | `Client loaded additional mod: BiomeLords` |
+
+Either way Jotunn's `FejdStartup.ShowConnectError` postfix replaces the vanilla "connection
+failed" panel with its own compatibility window, listing BiomeLords under **Additional Mods
+Loaded** ("was not loaded on the server"). `VersionStrictness.Minor` compares major+minor only,
+so 0.6.13 ↔ 0.6.14 connect fine while 0.6.x ↔ 0.7.x does not.

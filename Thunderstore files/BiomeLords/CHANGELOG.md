@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.14
+
+Bug fix for Valheim 1.0's purchasable inventory rows.
+
+- **Featherweight now works alongside the inventory rows Haldor sells.** Valheim 1.0 lets you buy extra inventory rows from Haldor, and on every login (and every purchase) the game resets your inventory to exactly the rows you've bought and throws anything beyond them on the ground. That collided with Featherweight's two extra rows in three ways: everything stored in the Featherweight rows was dumped on the floor at your feet each time you logged in or bought a row; if you'd bought rows from Haldor and were on any *other* Blessing, BiomeLords shrank your inventory back to four rows on login and crated the items in the rows you'd paid for; and with Featherweight active the bought rows and the Blessing rows overlapped, so you didn't get both. All three are fixed. Your bought rows are now the baseline and Featherweight's rows stack **below** them, so with two rows bought you have 4 + 2 + 2 = 8. Buying a row while blessed simply grows the grid by one — nothing moves and nothing is dropped. Switching Blessings still crates only the Featherweight rows, never the ones you bought.
+- **The inventory window is sized by the game's own row-count routine**, so bought rows and Featherweight rows are framed identically and the panel no longer double-counts the rows you bought.
+
 ## 0.6.13
 
 The Deep North, and configuration.

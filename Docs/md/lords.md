@@ -441,12 +441,16 @@ runtime logic gated on the SE being active:
   the cap is communicated through this tooltip / compendium instead (the tooltip reads the
   configured cap and row count live via `BlessingTooltipPatch`, so it never drifts from the config).
 - **+2 inventory rows** (`LordConfig.FallerValkyrieExtraRows`, default 2 — 8 slots each),
-  via `FeatherweightInventory`. The extra rows use the **same** slot UI as the normal grid
-  (built from the same `m_elementPrefab`); `InventoryGui_Show_FeatherweightPanel` stretches
-  the inventory window/backdrop to wrap them. Because Valheim doesn't persist inventory
-  dimensions, the rows are restored each session: `InventoryExpandLoadPatch` pre-grows the
-  inventory before items load (so extra-row items aren't compacted/destroyed), and the spawn
-  re-apply reconciles the height. **Switching to a different blessing** collapses the rows and
+  via `FeatherweightInventory`, stacked **below** any rows the player bought from Haldor in
+  1.0 rather than replacing them (4 + 2 bought + 2 blessed = 8). The extra rows use the
+  **same** slot UI as the normal grid (built from the same `m_elementPrefab`);
+  `InventoryGui_Show_FeatherweightPanel` sizes the window through vanilla's own
+  `InventoryGui.SetInventorySize` so bought and blessed rows are framed identically. Because
+  Valheim doesn't persist inventory dimensions, the rows are restored each session:
+  `InventoryExpandLoadPatch` pre-grows the inventory before items load,
+  `FeatherweightInventorySizePatch` re-asserts them in front of vanilla's own row reset (which
+  would otherwise ground-drop them on every login), and the spawn re-apply reconciles the
+  height. **Switching to a different blessing** collapses the rows and
   spills their contents into one or more **`CargoCrate`s** dropped at your feet (the same
   crate a broken cart/ship leaves behind — `Container.DropAllItems`); a fresh crate is spawned
   whenever one fills, so a full set of extra slots never overflows onto the ground. On

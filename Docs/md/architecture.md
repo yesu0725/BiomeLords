@@ -78,7 +78,7 @@ See [systems.md](systems.md) for implementation details.
 | `RootwardService` | One-shot Rootward FP burst: heals the caster 100 HP and erupts up to 5 tamed TentaRoots on the closest enemies |
 | `BlessingSystem` | Pedestal → player SE grant logic; persists active blessing in `m_customData` |
 | `PowerClaimSystem` | Lord kill → FP auto-grant |
-| `FeatherweightInventory` | Featherweight blessing: raised carry cap + extra inventory rows + CargoCrate spill on switch; base height is CQS-aware (see [systems.md](systems.md#comfyquickslots-compatibility)) |
+| `FeatherweightInventory` | Featherweight blessing: raised carry cap + extra inventory rows + CargoCrate spill on switch; base height is per-player — vanilla's purchased `invrows` count, floored at 4 or at 5 under CQS (see [systems.md](systems.md#purchased-rows-are-the-baseline-valheim-10)) |
 | `StorageWindowPosition` | Chest/storage window placement: config offset in inventory cells + `StorageWindowDragger` click-and-drag, no mod detection (see [systems.md](systems.md#storage-window-placement)) |
 
 ### Brain MonoBehaviours

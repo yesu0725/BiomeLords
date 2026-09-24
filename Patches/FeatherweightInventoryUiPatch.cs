@@ -11,9 +11,19 @@ namespace BiomeLords.Patches
     /// The slots themselves already match vanilla exactly: InventoryGrid builds
     /// every cell from the same `m_elementPrefab` and the grid root auto-resizes,
     /// so the extra rows render with identical slot art, bindings and tooltips.
-    /// The only thing that doesn't auto-grow is the player panel's backdrop image,
-    /// so this patch stretches the panel (and its background) to cover the added
-    /// rows whenever the inventory is opened.
+    /// The only thing that doesn't auto-grow is the player panel, and since
+    /// Valheim 1.0 vanilla has its own routine for exactly that:
+    /// InventoryGui.SetInventorySize(rows) sizes the panel for `rows` total rows
+    /// from a baseline it captured in Awake. Vanilla calls it from
+    /// Player.SetInventorySize with the PURCHASED row count only (on spawn and on a
+    /// Haldor purchase), so the panel comes up framing the bought rows and not the
+    /// Featherweight rows below them. This patch re-runs that same vanilla routine
+    /// with the grid's TRUE height every time the inventory is opened, so the panel
+    /// frames every row the player actually has. Handing the layout to vanilla's own
+    /// formula is what keeps purchased rows and Featherweight rows looking identical,
+    /// and avoids double-counting the purchased rows (which an independently cached
+    /// "base" height would do, since vanilla has already stretched the panel for
+    /// them before the first open).
     ///
     /// This patch owns the PLAYER panel only. Keeping the chest/storage window clear
     /// of the extra rows is a separate, mod-agnostic concern handled by
@@ -26,11 +36,6 @@ namespace BiomeLords.Patches
     [HarmonyPatch(typeof(InventoryGui), nameof(InventoryGui.Show))]
     public static class InventoryGui_Show_FeatherweightPanel
     {
-        private static float _basePanelHeight  = float.NaN;
-        private static float _baseBkgHeight    = float.NaN;
-        private static float _basePanelPosY    = float.NaN;
-        private static float _baseBkgPosY      = float.NaN;
-
         [HarmonyPostfix]
         public static void Postfix(InventoryGui __instance)
         {
@@ -50,82 +55,23 @@ namespace BiomeLords.Patches
             // An incompatible slot-expansion mod (ExtraSlots / AzuExtendedPlayerInventory)
             // owns the player grid height AND its own panel/backdrop layout. Featherweight
             // adds no rows in that configuration, so leave the whole inventory UI untouched —
-            // otherwise we'd stretch the panel by (GetHeight() - BaseHeight) rows and leave a
-            // large empty backdrop below the real slots.
+            // otherwise we'd stretch the panel for rows that mod lays out its own way.
             if (FeatherweightInventory.IncompatibleSlotModLoaded)
                 return;
 
-            int rows = player.GetInventory().GetHeight();
-            int extraRows = rows - FeatherweightInventory.BaseHeight;
-            if (extraRows < 0) extraRows = 0;
-
-            float space = gui.m_playerGrid.m_elementSpace;
-            float delta = extraRows * space;
-
-            // The player grid lays its cells out downward from the top, so the extra
-            // Featherweight rows extend DOWN past the base grid's bottom. Grow the player
-            // panel + backdrop downward (top edge fixed) to frame those rows.
-            //
             // SKIP this under ComfyQuickSlots: there the player backdrop is CQS's own
             // "ExtInvGrid" image, which CQS re-sizes one frame after Show (clobbering
             // anything we set) — InventoryGrid_UpdateInventory_FeatherweightCqsBackdrop
             // extends that backdrop after CQS runs instead.
-            if (!FeatherweightInventory.ComfyQuickSlotsLoaded)
-            {
-                // Cache the vanilla base sizes/positions the first time so repeated opens
-                // (and toggling the blessing on/off) always compute from the same baseline.
-                var panel = gui.m_player;
-                if (float.IsNaN(_basePanelHeight))
-                {
-                    _basePanelHeight = panel.sizeDelta.y;
-                    _basePanelPosY   = panel.anchoredPosition.y;
-                }
-                GrowDownward(panel, _basePanelHeight, _basePanelPosY, delta);
+            if (FeatherweightInventory.ComfyQuickSlotsLoaded)
+                return;
 
-                var bkg = FindBackdrop(panel);
-                if (bkg != null)
-                {
-                    if (float.IsNaN(_baseBkgHeight))
-                    {
-                        _baseBkgHeight = bkg.sizeDelta.y;
-                        _baseBkgPosY   = bkg.anchoredPosition.y;
-                    }
-                    GrowDownward(bkg, _baseBkgHeight, _baseBkgPosY, delta);
-                }
-            }
-        }
+            var inv = player.GetInventory();
+            if (inv == null) return;
 
-        /// <summary>Grows a RectTransform's height from <paramref name="baseHeight"/> by
-        /// <paramref name="delta"/> while keeping its TOP edge fixed in place — i.e. all
-        /// growth extends downward, matching the player grid (which lays its cells out
-        /// downward from the top). Reads `rt.pivot.y` at runtime so it's correct regardless
-        /// of how the panel is actually pivoted, instead of assuming a direction.</summary>
-        private static void GrowDownward(RectTransform rt, float baseHeight, float basePosY, float delta)
-        {
-            var size = rt.sizeDelta;
-            size.y = baseHeight + delta;
-            rt.sizeDelta = size;
-
-            var pos = rt.anchoredPosition;
-            pos.y = basePosY - (1f - rt.pivot.y) * delta;
-            rt.anchoredPosition = pos;
-        }
-
-        /// <summary>Find the panel backdrop: the largest UI Image directly under the
-        /// player panel (the dark/parchment frame behind the grid). Uses a
-        /// string-based GetComponent so we don't reference UnityEngine.UI.</summary>
-        private static RectTransform FindBackdrop(RectTransform panel)
-        {
-            RectTransform best = null;
-            float bestArea = 0f;
-            for (int i = 0; i < panel.childCount; i++)
-            {
-                var child = panel.GetChild(i) as RectTransform;
-                if (child == null || child.GetComponent("Image") == null) continue;
-                float area = child.rect.width * child.rect.height;
-                if (area > bestArea) { bestArea = area; best = child; }
-            }
-            return best;
+            // Vanilla's own panel sizing, fed the real row count (purchased + Featherweight).
+            // Idempotent: with no Featherweight rows this is exactly the size vanilla set.
+            gui.SetInventorySize(inv.GetHeight());
         }
     }
 
