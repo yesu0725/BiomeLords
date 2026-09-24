@@ -70,7 +70,7 @@ See [systems.md](systems.md) for implementation details.
 | `LordProfileRegistry` | Per-instance convergence-resolved attack profile (parallel to `LordDamageRegistry`) |
 | `LordDefeatStore` | Persists which Lords have been killed; drives `HighestDefeatedTier()` for scaling |
 | `RegisteredLords` | Runtime set of Lord prefab names + event/id mappings |
-| `KillStore` | ZDO-persisted kill counters |
+| `KillStore` | Per-character kill counters in `Player.m_customData` |
 | `PowerEffectsService` | Marker-based FP tick (Tides Grace, Howl) |
 | `HiveSightService` | Minimap pins for Hive Sight FP |
 | `ValkyrieRallyService` | One-shot group restore burst (HP/Stamina/Eitr/Adrenaline/Shield/Rested) for Valkyrie's Rally FP, broadcast via routed RPC |

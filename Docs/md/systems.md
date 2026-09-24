@@ -291,11 +291,14 @@ itself would have disarmed every Neck in the world.
 
 ## KillStore (`Util/KillStore.cs`)
 
-ZDO-persisted per-Lord kill counters. Keys are derived from `BiomeLordDef.Id`.
+Per-character kill counters stored in `Player.m_customData` (saved with the character
+profile, so they follow the character across worlds). One key per kill-target prefab:
+`BiomeLords.kills.<prefabName>`; a Lord's progress is the sum over its `KillTargets`.
 
-- Incremented by `KillTrackerPatch` when a kill target creature dies
+- Incremented by `KillTrackerPatch` when a kill target dies — only for the local player
+  who landed the killing blow
 - Read by `SummonService` to gate Horn usage
-- Reset to 0 after a Lord is successfully summoned (or optionally on Lord kill)
+- Reset to 0 for that Lord's targets when the local player lands the killing blow on the Lord
 - Gated by `LordConfig.EnableKillTracking` (admin-configurable master switch)
 
 ---

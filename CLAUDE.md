@@ -41,8 +41,8 @@ BiomeLords/
 │   ├── LordIntrinsic.cs        Per-Lord baked damage overrides
 │   ├── LordDamageRegistry.cs   Per-instance damage mult (keyed by instanceID)
 │   ├── RegisteredLords.cs      Runtime set of Lord prefab names
-│   ├── KillStore.cs            ZDO-persisted kill counters
-│   ├── PlayerProgress.cs       Per-player progression helpers
+│   ├── KillStore.cs            Per-character kill counters (Player.m_customData)
+│   ├── LordDefeatStore.cs      Lord defeats → scaling tier (player unique keys, or world global keys if GlobalLordDefeats)
 │   ├── FxLibrary.cs            Vanilla VFX helper
 │   ├── IconAssignment.cs       SE icon candidates per blessing
 │   ├── SpriteTinter.cs         Material tint helper
