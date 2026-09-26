@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.15
+
+Maintenance release.
+
+- **No gameplay changes** — Lords, Blessings, Forsaken Powers and config all behave exactly as in 0.6.14. This release updates the developer documentation and the build setup only. Updating is optional, and 0.6.14 and 0.6.15 players can share a server.
+
 ## 0.6.14
 
 Bug fix for Valheim 1.0's purchasable inventory rows.

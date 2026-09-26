@@ -1,6 +1,6 @@
 # BiomeLords — Project Overview
 
-**Version:** 0.6.14  
+**Version:** 0.6.15  
 **GUID:** `com.taeguk.BiomeLords`  
 **Framework:** BepInEx + Jotunn + HarmonyLib  
 **Valheim compatibility:** `EveryoneMustHaveMod`, `VersionStrictness.Minor`
@@ -120,9 +120,10 @@ cd "E:\Valheim Modding\ValheimBiomeLords\Github\BiomeLords"
 dotnet build -c Release
 
 # Deploy — automatic on every build via the CopyToPlugins target in .csproj,
-# to the Gale client profile "HB Test" ONLY:
+# to exactly two places:
 #   %APPDATA%\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords
-# No other profile (TG Mods Only, dedicated server, r2modman) receives builds — copy by hand if needed:
+#   C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated modded test server\BepInEx\plugins\TaegukGaming-BiomeLords
+# No other profile (TG Mods Only, r2modman) receives builds — copy by hand if needed:
 $src  = "bin\Release\netstandard2.1\BiomeLords.dll"
 $dest = "C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords\BiomeLords.dll"
 Copy-Item $src $dest -Force

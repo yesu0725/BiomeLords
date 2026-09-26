@@ -77,15 +77,19 @@
     <!-- Client-side testing profiles (Gale). Replaced the old r2modman profiles. -->
     <GaleTestPluginPath>$(GaleProfilePath)\BepInEx\plugins\TaegukGaming-BiomeLords</GaleTestPluginPath>
     <GalePluginPath>C:\Users\yesu0725\AppData\Roaming\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords</GalePluginPath>
-    <DedicatedServerPluginPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server\BepInEx\plugins\TaegukGaming-BiomeLords</DedicatedServerPluginPath>
+    <DedicatedServerPluginPath>C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated modded test server\BepInEx\plugins\TaegukGaming-BiomeLords</DedicatedServerPluginPath>
   </PropertyGroup>
 
-  <!-- Deploy: the Gale "HB Test" profile ONLY. Every other profile (TG Mods Only,
-       the dedicated server, r2modman) is left alone on purpose - copy by hand if a
-       build is ever needed there. -->
+  <!-- Deploy: the Gale "HB Test" profile and the local modded test dedicated server.
+       Every other profile (TG Mods Only, r2modman) is left alone on purpose - copy by
+       hand if a build is ever needed there. The server copy only warns on failure: a
+       running server holds the DLL open (MSB3021), and that must not fail the build. -->
   <Target Name="CopyToPlugins" AfterTargets="Build">
     <MakeDir Directories="$(GalePluginPath)" />
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GalePluginPath)" />
     <Message Text="Copied $(TargetFileName) to Gale HB Test profile" Importance="high" />
+    <MakeDir Directories="$(DedicatedServerPluginPath)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(DedicatedServerPluginPath)" Retries="0" ContinueOnError="WarnAndContinue" />
+    <Message Text="Copied $(TargetFileName) to modded test dedicated server" Importance="high" Condition="'$(MSBuildLastTaskResult)' == 'true'" />
   </Target>
 </Project>

@@ -37,25 +37,29 @@ you want to compile against.
 ## Deploy
 
 The `CopyToPlugins` target in `BiomeLords.csproj` runs after every build and copies the
-DLL to **one** destination — the Gale client profile **HB Test**:
+DLL to **two** destinations:
 
 | Destination | Path |
 |---|---|
-| Gale client profile **HB Test** (the only deploy target) | `%APPDATA%\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords` |
+| Gale client profile **HB Test** | `%APPDATA%\com.kesomannen.gale\valheim\profiles\HB Test\BepInEx\plugins\TaegukGaming-BiomeLords` |
+| Local **modded test dedicated server** | `C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated modded test server\BepInEx\plugins\TaegukGaming-BiomeLords` |
 
-**No other profile receives builds** — not TG Mods Only, not the dedicated server, not
-r2modman. That is deliberate (decided 2026-09-18): those profiles hold whatever build was
-last put there on purpose, so a test build can never leak into a profile someone plays on.
-If a build is ever needed elsewhere, copy it by hand.
+**No other profile receives builds** — not TG Mods Only, not r2modman. That is deliberate:
+those profiles hold whatever build was last put there on purpose, so a test build can never
+leak into a profile someone plays on. If a build is ever needed elsewhere, copy it by hand.
+
+The server copy is `ContinueOnError="WarnAndContinue"`: if the server is running it holds the
+DLL open and the copy fails with `MSB3021 … user-mapped section open`. The build still
+succeeds, with a warning — stop the server and rebuild (or copy by hand) to update it.
 
 (`GaleProfilePath` — TG Mods Only — is still used for *reference assemblies* at compile
 time; that is unrelated to deployment.)
 
 The old first hop, `$(ValheimPath)\BepInEx\plugins\BiomeLords`, was dropped with 0.6.11:
 that folder no longer exists (see *Reference assemblies* above) and creating it would plant
-a stray `BepInEx\` in a vanilla install. The dedicated-server hop was dropped with 0.6.13
-along with TG Mods Only; it also used to fail with `MSB3021 … user-mapped section open`
-whenever the server was running.
+a stray `BepInEx\` in a vanilla install. The old dedicated-server hop (`…\common\Valheim
+dedicated server\…`) was dropped with 0.6.13 along with TG Mods Only; that install no longer
+exists. The server hop came back on 2026-09-25, pointed at the *modded test* server instead.
 
 To deploy by hand:
 
@@ -254,7 +258,7 @@ biomelords_tame_time 20
 ### Before first in-game test of any new feature
 
 - [ ] Build succeeds with 0 errors
-- [ ] DLL deployed to the Gale **HB Test** profile (automatic on build)
+- [ ] DLL deployed to the Gale **HB Test** profile and the modded test dedicated server (automatic on build; the server copy only warns if the server is running)
 - [ ] LogOutput.log shows all 8 Lords registered and 0 patch errors
 
 ### Lord-defeat scaling
@@ -451,6 +455,6 @@ python generate_lord_handbook.py
 | `Patch class … failed: IL Compile Error` | `Prefix`/`Postfix` parameter named after a renamed vanilla parameter | Rename to match (`verify_patch_targets.py` catches this offline) |
 | `MissingMethodException` at runtime through mod code | Called vanilla method gained a parameter; DLL built against old assembly | Rebuild — no code change |
 | Build: `Could not locate the assembly "BepInEx"` | `GaleProfilePath` points at a profile without BepInEx/Jotunn | Fix the path in `BiomeLords.csproj` |
-| Build: `MSB3021 … user-mapped section open` on the server copy | Dedicated server is running and has the DLL loaded | Stop the server, then copy; the compile itself succeeded |
+| Build: `MSB3021 … user-mapped section open` on the server copy | Dedicated server is running and has the DLL loaded | Build still succeeds (the server copy only warns). Stop the server, then rebuild or copy by hand |
 | Chest/storage window only drags in the top of the screen | Clamp measured against the parent rect and re-ran every drag frame | Fixed 0.6.12 — clamp in screen pixels, on drag **end** only (`StorageWindowPosition.ClampToScreen`) |
 | SE not appearing on HUD | Icon not assigned before first render | `StatusEffectFactory.EnsureIcon` lazy-assigns from trophy icon or falls back to any vanilla SE icon |

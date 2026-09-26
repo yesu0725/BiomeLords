@@ -26,7 +26,7 @@ namespace BiomeLords
     {
         public const string ModGUID    = "com.taeguk.BiomeLords";
         public const string ModName    = "BiomeLords";
-        public const string ModVersion = "0.6.14";
+        public const string ModVersion = "0.6.15";
 
         internal static Plugin Instance;
         private Harmony _harmony;
